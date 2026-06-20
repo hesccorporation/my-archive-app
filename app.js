@@ -1,6 +1,7 @@
 const STORAGE_KEY = "my-archive-app-state-v1";
 const DB_NAME = "my-archive-app-db";
 const DB_STORE = "state";
+const APP_URL = "https://hesccorporation.github.io/my-archive-app/";
 const SUPABASE_URL = "https://askukytiskyakvbxtpan.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFza3VreXRpc2t5YWt2Ynh0cGFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5MDE5NjcsImV4cCI6MjA5NzQ3Nzk2N30.3Sygw5Op7g2sAZdXlNb-HWKbHfVLCormsBqhhxmOcpQ";
 
@@ -244,7 +245,7 @@ async function sendLoginLink() {
   const { error } = await supabaseClient.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: location.href.split("#")[0]
+      emailRedirectTo: APP_URL
     }
   });
 
