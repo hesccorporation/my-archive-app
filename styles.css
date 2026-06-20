@@ -831,13 +831,14 @@ button {
   }
 
   .item-list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     gap: 8px;
   }
 
   .item-card {
     gap: 6px;
     padding: 8px;
+    overflow: hidden;
   }
 
   .select-item {
@@ -879,7 +880,7 @@ button {
   }
 
   .item-actions {
-    gap: 4px;
+    display: none;
   }
 
   .item-actions button {
@@ -929,12 +930,43 @@ button {
   }
 
   .item-list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     gap: 6px;
   }
 
   .item-card {
     padding: 7px;
+  }
+
+  .item-head {
+    gap: 4px;
+  }
+
+  .select-item span {
+    display: none;
+  }
+
+  .item-title h3 {
+    font-size: 12px;
+    line-height: 1.25;
+  }
+
+  .item-meta {
+    display: none;
+  }
+
+  .memo,
+  .item-url {
+    display: none;
+  }
+
+  .image-preview-button {
+    order: -1;
+    border-radius: 6px;
+  }
+
+  .image-preview {
+    aspect-ratio: 1 / 1;
   }
 
   .item-actions button {
