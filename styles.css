@@ -888,7 +888,7 @@ button {
 @media (max-width: 860px) {
   .app-shell {
     display: block;
-    padding-bottom: 72px;
+    padding-bottom: 0;
   }
 
   .sidebar {
@@ -1013,19 +1013,7 @@ button {
   }
 
   .mobile-nav {
-    position: fixed;
-    right: 12px;
-    bottom: 12px;
-    left: 12px;
-    z-index: 10;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: #ffffff;
-    padding: 8px;
-    box-shadow: 0 14px 36px rgba(23, 32, 42, 0.22);
+    display: none !important;
   }
 
   .mobile-nav button {
