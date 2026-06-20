@@ -24,6 +24,21 @@
           새 자료
         </button>
 
+        <section class="sync-panel" aria-label="동기화">
+          <p class="sync-title">기기 동기화</p>
+          <p class="sync-status" id="syncStatus">로그인하면 PC와 휴대폰이 같은 자료를 봅니다.</p>
+          <label class="sr-only" for="emailInput">이메일</label>
+          <input id="emailInput" type="email" placeholder="이메일" autocomplete="email" />
+          <div class="sync-actions">
+            <button id="loginButton" type="button">로그인 링크</button>
+            <button id="logoutButton" type="button">로그아웃</button>
+          </div>
+          <div class="sync-actions">
+            <button id="pullButton" type="button">서버에서 불러오기</button>
+            <button id="pushButton" type="button">서버에 저장</button>
+          </div>
+        </section>
+
         <nav class="category-nav" id="categoryNav"></nav>
 
         <form class="category-form" id="categoryForm">
@@ -130,6 +145,7 @@
       <button type="button" id="mobileAddButton">추가</button>
     </nav>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./app.js"></script>
   </body>
 </html>

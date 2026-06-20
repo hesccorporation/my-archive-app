@@ -1,6 +1,8 @@
 const STORAGE_KEY = "my-archive-app-state-v1";
 const DB_NAME = "my-archive-app-db";
 const DB_STORE = "state";
+const SUPABASE_URL = "https://askukytiskyakvbxtpan.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFza3VreXRpc2t5YWt2Ynh0cGFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5MDE5NjcsImV4cCI6MjA5NzQ3Nzk2N30.3Sygw5Op7g2sAZdXlNb-HWKbHfVLCormsBqhhxmOcpQ";
 
 const defaultState = {
   categories: ["받은함", "사업", "야구 영상", "공부 자료", "구매할 것"],
@@ -36,6 +38,11 @@ let state = loadState();
 let selectedIds = new Set();
 let appDatabase = null;
 let databaseReady = false;
+let supabaseClient = null;
+let currentUser = null;
+let remoteReady = false;
+let remoteSaveTimer = null;
+let suppressRemoteSave = false;
 
 const els = {
   categoryNav: document.querySelector("#categoryNav"),
@@ -63,7 +70,13 @@ const els = {
   imageImportInput: document.querySelector("#imageImportInput"),
   importStatus: document.querySelector("#importStatus"),
   bulkDeleteButton: document.querySelector("#bulkDeleteButton"),
-  selectAllButton: document.querySelector("#selectAllButton")
+  selectAllButton: document.querySelector("#selectAllButton"),
+  emailInput: document.querySelector("#emailInput"),
+  loginButton: document.querySelector("#loginButton"),
+  logoutButton: document.querySelector("#logoutButton"),
+  pullButton: document.querySelector("#pullButton"),
+  pushButton: document.querySelector("#pushButton"),
+  syncStatus: document.querySelector("#syncStatus")
 };
 
 function loadState() {
@@ -87,6 +100,10 @@ function saveState() {
     saveStateToDatabase().catch(() => {
       els.importStatus.textContent = "휴대폰 저장소에 저장하지 못했습니다. 브라우저 저장 공간을 확인해 주세요.";
     });
+  }
+
+  if (remoteReady && currentUser && !suppressRemoteSave) {
+    scheduleRemoteSave();
   }
   return true;
 }
@@ -153,6 +170,171 @@ async function initializeStorage() {
   } catch {
     databaseReady = false;
     els.importStatus.textContent = "휴대폰 장기 저장소를 열지 못했습니다. Chrome/Safari에서 다시 열어 주세요.";
+  }
+}
+
+function initializeSupabase() {
+  if (!window.supabase?.createClient) {
+    setSyncStatus("Supabase 연결 파일을 불러오지 못했습니다.");
+    return;
+  }
+
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+function setSyncStatus(message) {
+  els.syncStatus.textContent = message;
+}
+
+function setSyncButtons() {
+  const signedIn = Boolean(currentUser);
+  els.logoutButton.disabled = !signedIn;
+  els.pullButton.disabled = !signedIn;
+  els.pushButton.disabled = !signedIn;
+}
+
+async function initializeAuth() {
+  initializeSupabase();
+  if (!supabaseClient) {
+    setSyncButtons();
+    return;
+  }
+
+  const { data } = await supabaseClient.auth.getSession();
+  currentUser = data.session?.user || null;
+  setSyncButtons();
+
+  if (currentUser) {
+    els.emailInput.value = currentUser.email || "";
+    setSyncStatus(`${currentUser.email} 로그인됨. 서버 자료를 확인하는 중...`);
+    await pullRemoteState({ silent: true });
+    remoteReady = true;
+    setSyncStatus(`${currentUser.email} 동기화 준비됨`);
+  } else {
+    setSyncStatus("로그인하면 PC와 휴대폰이 같은 자료를 봅니다.");
+  }
+
+  supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+    currentUser = session?.user || null;
+    remoteReady = false;
+    setSyncButtons();
+
+    if (currentUser) {
+      els.emailInput.value = currentUser.email || "";
+      setSyncStatus(`${currentUser.email} 로그인됨. 서버 자료를 불러오는 중...`);
+      await pullRemoteState({ silent: true });
+      remoteReady = true;
+      setSyncStatus(`${currentUser.email} 동기화 준비됨`);
+      render();
+    } else {
+      setSyncStatus("로그아웃됨");
+    }
+  });
+}
+
+async function sendLoginLink() {
+  if (!supabaseClient) return;
+  const email = els.emailInput.value.trim();
+  if (!email) {
+    setSyncStatus("이메일을 입력해 주세요.");
+    return;
+  }
+
+  setSyncStatus("로그인 링크를 보내는 중...");
+  const { error } = await supabaseClient.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: location.href.split("#")[0]
+    }
+  });
+
+  if (error) {
+    setSyncStatus(`로그인 링크 전송 실패: ${error.message}`);
+    return;
+  }
+
+  setSyncStatus("이메일로 온 로그인 링크를 눌러 주세요.");
+}
+
+async function logout() {
+  if (!supabaseClient) return;
+  await supabaseClient.auth.signOut();
+  currentUser = null;
+  remoteReady = false;
+  setSyncButtons();
+  setSyncStatus("로그아웃됨");
+}
+
+function scheduleRemoteSave() {
+  window.clearTimeout(remoteSaveTimer);
+  remoteSaveTimer = window.setTimeout(() => {
+    pushRemoteState({ silent: true });
+  }, 800);
+}
+
+async function pullRemoteState(options = {}) {
+  if (!supabaseClient || !currentUser) {
+    setSyncStatus("먼저 로그인해 주세요.");
+    return;
+  }
+
+  if (!options.silent) setSyncStatus("서버에서 불러오는 중...");
+  const { data, error } = await supabaseClient
+    .from("archive_state")
+    .select("data, updated_at")
+    .eq("user_id", currentUser.id)
+    .maybeSingle();
+
+  if (error) {
+    setSyncStatus(`서버 불러오기 실패: ${error.message}`);
+    return;
+  }
+
+  if (data?.data) {
+    suppressRemoteSave = true;
+    state = normalizeState(data.data);
+    selectedIds.clear();
+    await saveStateToDatabase().catch(() => {});
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch {}
+    render();
+    suppressRemoteSave = false;
+    if (!options.silent) setSyncStatus(`서버 자료를 불러왔습니다. ${state.items.length}개`);
+    return;
+  }
+
+  await pushRemoteState({ silent: true });
+  if (!options.silent) setSyncStatus("서버에 자료가 없어 현재 자료를 저장했습니다.");
+}
+
+async function pushRemoteState(options = {}) {
+  if (!supabaseClient || !currentUser) {
+    setSyncStatus("먼저 로그인해 주세요.");
+    return;
+  }
+
+  if (!options.silent) setSyncStatus("서버에 저장하는 중...");
+  const { error } = await supabaseClient
+    .from("archive_state")
+    .upsert({
+      user_id: currentUser.id,
+      data: {
+        categories: state.categories,
+        activeView: state.activeView,
+        typeFilter: state.typeFilter,
+        items: state.items
+      },
+      updated_at: new Date().toISOString()
+    });
+
+  if (error) {
+    setSyncStatus(`서버 저장 실패: ${error.message}`);
+    return;
+  }
+
+  if (!options.silent) {
+    setSyncStatus(`서버에 저장했습니다. ${state.items.length}개`);
   }
 }
 
@@ -905,6 +1087,11 @@ els.imageImportInput.addEventListener("change", (event) => {
   event.target.value = "";
 });
 
+els.loginButton.addEventListener("click", sendLoginLink);
+els.logoutButton.addEventListener("click", logout);
+els.pullButton.addEventListener("click", () => pullRemoteState());
+els.pushButton.addEventListener("click", () => pushRemoteState());
+
 els.selectAllButton.addEventListener("click", toggleVisibleSelection);
 els.bulkDeleteButton.addEventListener("click", deleteSelectedItems);
 
@@ -977,7 +1164,9 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
 }
 
 initializeStorage().finally(() => {
-  resetForm();
-  render();
-  parseSharedParams();
+  initializeAuth().finally(() => {
+    resetForm();
+    render();
+    parseSharedParams();
+  });
 });
