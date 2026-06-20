@@ -606,6 +606,7 @@ button {
   background: var(--panel);
   min-width: 0;
   padding: 12px;
+  cursor: pointer;
 }
 
 .item-card.selected {
@@ -770,7 +771,12 @@ button {
   display: none;
 }
 
-.image-modal {
+.detail-modal[hidden] {
+  display: none;
+}
+
+.image-modal,
+.detail-modal {
   position: fixed;
   inset: 0;
   z-index: 50;
@@ -780,20 +786,23 @@ button {
   padding: 18px;
 }
 
-.image-modal-panel {
+.image-modal-panel,
+.detail-modal-panel {
   display: grid;
   width: min(1100px, 96vw);
   max-height: 94vh;
   gap: 10px;
 }
 
-.image-modal-actions {
+.image-modal-actions,
+.detail-modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
 }
 
-.image-modal-actions button {
+.image-modal-actions button,
+.detail-modal-actions button {
   min-height: 38px;
   border: 0;
   border-radius: 8px;
@@ -801,6 +810,69 @@ button {
   color: #111827;
   padding: 0 14px;
   font-weight: 800;
+}
+
+.detail-modal-panel {
+  width: min(760px, 94vw);
+  overflow: auto;
+}
+
+.detail-body {
+  display: grid;
+  gap: 14px;
+  border-radius: 8px;
+  background: #fff;
+  padding: 20px;
+}
+
+.detail-body h2 {
+  margin: 0;
+  font-size: 24px;
+  letter-spacing: 0;
+  word-break: break-word;
+}
+
+.detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.detail-row {
+  display: grid;
+  gap: 7px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.detail-row h3 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.detail-row div,
+.detail-row a {
+  color: var(--ink);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.detail-row a {
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.detail-image {
+  display: block;
+  width: 100%;
+  max-height: 58vh;
+  border-radius: 8px;
+  object-fit: contain;
+  background: #f8fafc;
 }
 
 #modalImage {

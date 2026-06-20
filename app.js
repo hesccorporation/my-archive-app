@@ -90,7 +90,10 @@ const els = {
   imageModal: document.querySelector("#imageModal"),
   modalImage: document.querySelector("#modalImage"),
   modalCloseButton: document.querySelector("#modalCloseButton"),
-  modalSaveButton: document.querySelector("#modalSaveButton")
+  modalSaveButton: document.querySelector("#modalSaveButton"),
+  detailModal: document.querySelector("#detailModal"),
+  detailBody: document.querySelector("#detailBody"),
+  detailCloseButton: document.querySelector("#detailCloseButton")
 };
 
 function loadState() {
@@ -608,7 +611,7 @@ function renderItemCard(item) {
     : "";
 
   return `
-    <article class="item-card ${checked ? "selected" : ""}">
+    <article class="item-card ${checked ? "selected" : ""}" data-open-detail="${item.id}" tabindex="0">
       <div class="item-head">
         <label class="select-item">
           <input type="checkbox" data-select-id="${item.id}" ${checked} />
@@ -653,6 +656,7 @@ function matchesSearch(item, query) {
   if (!query) return true;
   const haystack = [
     item.title,
+    item.content,
     item.url,
     item.category,
     item.memo,
@@ -1058,6 +1062,7 @@ function saveItem(event) {
     url,
     category: els.quickCategoryInput.value || els.categoryInput.value,
     tags: els.tagsInput.value.split(",").map((tag) => tag.trim()).filter(Boolean),
+    content: quickText,
     memo,
     favorite: false,
     createdAt: new Date().toISOString()
@@ -1084,8 +1089,8 @@ function editItem(id) {
 
   els.editingId.value = item.id;
   els.quickInput.value = item.type === "link" && item.url
-    ? `${item.url}\n${item.memo}`.trim()
-    : item.memo || item.title;
+    ? (item.content || `${item.url}\n${item.memo}`.trim())
+    : item.content || item.memo || item.title;
   els.titleInput.value = item.title;
   els.typeInput.value = item.type;
   els.urlInput.value = item.url;
@@ -1273,6 +1278,50 @@ function saveActiveModalImage() {
   });
 }
 
+function detailRow(label, value, options = {}) {
+  if (!value) return "";
+  const body = options.link
+    ? `<a href="${escapeAttribute(value)}" target="_blank" rel="noreferrer">${escapeHtml(value)}</a>`
+    : `<div>${escapeHtml(value)}</div>`;
+  return `
+    <section class="detail-row">
+      <h3>${label}</h3>
+      ${body}
+    </section>
+  `;
+}
+
+function openDetailModal(item) {
+  if (!item) return;
+  const content = item.content || (item.type === "link" && item.url ? item.url : "");
+  const tags = item.tags?.length ? item.tags.map((tag) => `#${tag}`).join(" ") : "";
+  const image = item.type === "image" && item.url
+    ? `<img class="detail-image" src="${escapeAttribute(item.url)}" alt="${escapeAttribute(item.title)}" />`
+    : "";
+
+  els.detailBody.innerHTML = `
+    <h2>${escapeHtml(item.title)}</h2>
+    <div class="detail-meta">
+      <span class="badge">${typeLabel(item.type)}</span>
+      <span class="badge">${escapeHtml(item.category)}</span>
+      <span>${formatDate(item.createdAt)}</span>
+    </div>
+    ${image}
+    ${detailRow("내용", content)}
+    ${detailRow("메모", item.memo && item.memo !== content ? item.memo : "")}
+    ${detailRow("태그", tags)}
+    ${detailRow("링크", item.type !== "image" ? item.url : "", { link: true })}
+  `;
+  els.detailModal.hidden = false;
+  document.body.classList.add("modal-open");
+}
+
+function closeDetailModal() {
+  els.detailModal.hidden = true;
+  els.detailBody.innerHTML = "";
+  document.body.classList.remove("modal-open");
+}
+
 els.categoryNav.addEventListener("click", (event) => {
   const deleteButton = event.target.closest("button[data-delete-category]");
   if (deleteButton) {
@@ -1361,7 +1410,16 @@ els.itemList.addEventListener("click", (event) => {
   }
 
   const button = event.target.closest("button[data-action]");
-  if (!button) return;
+  if (!button) {
+    if (event.target.closest("a")) return;
+    if (event.target.closest(".select-item")) return;
+    const card = event.target.closest("[data-open-detail]");
+    if (card) {
+      const item = state.items.find((entry) => entry.id === card.dataset.openDetail);
+      openDetailModal(item);
+    }
+    return;
+  }
   const { action, id } = button.dataset;
 
   if (action === "favorite") toggleFavorite(id);
@@ -1384,10 +1442,17 @@ els.modalSaveButton.addEventListener("click", saveActiveModalImage);
 els.imageModal.addEventListener("click", (event) => {
   if (event.target === els.imageModal) closeImageModal();
 });
+els.detailCloseButton.addEventListener("click", closeDetailModal);
+els.detailModal.addEventListener("click", (event) => {
+  if (event.target === els.detailModal) closeDetailModal();
+});
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !els.imageModal.hidden) {
     closeImageModal();
+  }
+  if (event.key === "Escape" && !els.detailModal.hidden) {
+    closeDetailModal();
   }
 });
 
