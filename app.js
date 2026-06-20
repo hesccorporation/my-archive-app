@@ -77,7 +77,10 @@ const els = {
   logoutButton: document.querySelector("#logoutButton"),
   pullButton: document.querySelector("#pullButton"),
   pushButton: document.querySelector("#pushButton"),
-  syncStatus: document.querySelector("#syncStatus")
+  syncStatus: document.querySelector("#syncStatus"),
+  passwordInput: document.querySelector("#passwordInput"),
+  signupButton: document.querySelector("#signupButton"),
+  resetPasswordButton: document.querySelector("#resetPasswordButton")
 };
 
 function loadState() {
@@ -233,28 +236,91 @@ async function initializeAuth() {
   });
 }
 
-async function sendLoginLink() {
-  if (!supabaseClient) return;
+function getAuthFields() {
   const email = els.emailInput.value.trim();
+  const password = els.passwordInput.value;
   if (!email) {
     setSyncStatus("이메일을 입력해 주세요.");
-    return;
+    return null;
   }
+  if (!password || password.length < 6) {
+    setSyncStatus("비밀번호는 6자 이상 입력해 주세요.");
+    return null;
+  }
+  return { email, password };
+}
 
-  setSyncStatus("로그인 링크를 보내는 중...");
-  const { error } = await supabaseClient.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: APP_URL
-    }
+async function signupWithPassword() {
+  if (!supabaseClient) return;
+  const fields = getAuthFields();
+  if (!fields) return;
+
+  setSyncStatus("회원가입 중...");
+  const { data, error } = await supabaseClient.auth.signUp({
+    email: fields.email,
+    password: fields.password
   });
 
   if (error) {
-    setSyncStatus(`로그인 링크 전송 실패: ${error.message}`);
+    setSyncStatus(`회원가입 실패: ${error.message}`);
     return;
   }
 
-  setSyncStatus("이메일로 온 로그인 링크를 눌러 주세요.");
+  currentUser = data.user || null;
+  setSyncButtons();
+  if (currentUser) {
+    await pushRemoteState({ silent: true });
+    remoteReady = true;
+    setSyncStatus(`${fields.email} 회원가입 및 로그인 완료`);
+  } else {
+    setSyncStatus("회원가입 완료. 이메일 확인이 필요하면 메일함을 확인해 주세요.");
+  }
+}
+
+async function loginWithPassword() {
+  if (!supabaseClient) return;
+  const fields = getAuthFields();
+  if (!fields) return;
+
+  setSyncStatus("로그인 중...");
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email: fields.email,
+    password: fields.password
+  });
+
+  if (error) {
+    setSyncStatus(`로그인 실패: ${error.message}`);
+    return;
+  }
+
+  currentUser = data.user || null;
+  setSyncButtons();
+  if (currentUser) {
+    await pullRemoteState({ silent: true });
+    remoteReady = true;
+    setSyncStatus(`${fields.email} 로그인 완료`);
+    render();
+  }
+}
+
+async function resetPassword() {
+  if (!supabaseClient) return;
+  const email = els.emailInput.value.trim();
+  if (!email) {
+    setSyncStatus("비밀번호를 재설정할 이메일을 입력해 주세요.");
+    return;
+  }
+
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+    redirectTo: APP_URL
+  });
+
+  if (error) {
+    setSyncStatus(`비밀번호 재설정 실패: ${error.message}`);
+    return;
+  }
+
+  setSyncStatus("비밀번호 재설정 메일을 보냈습니다.");
 }
 
 async function logout() {
@@ -1088,8 +1154,10 @@ els.imageImportInput.addEventListener("change", (event) => {
   event.target.value = "";
 });
 
-els.loginButton.addEventListener("click", sendLoginLink);
+els.signupButton.addEventListener("click", signupWithPassword);
+els.loginButton.addEventListener("click", loginWithPassword);
 els.logoutButton.addEventListener("click", logout);
+els.resetPasswordButton.addEventListener("click", resetPassword);
 els.pullButton.addEventListener("click", () => pullRemoteState());
 els.pushButton.addEventListener("click", () => pushRemoteState());
 

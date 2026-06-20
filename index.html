@@ -29,9 +29,15 @@
           <p class="sync-status" id="syncStatus">로그인하면 PC와 휴대폰이 같은 자료를 봅니다.</p>
           <label class="sr-only" for="emailInput">이메일</label>
           <input id="emailInput" type="email" placeholder="이메일" autocomplete="email" />
+          <label class="sr-only" for="passwordInput">비밀번호</label>
+          <input id="passwordInput" type="password" placeholder="비밀번호 6자 이상" autocomplete="current-password" />
           <div class="sync-actions">
-            <button id="loginButton" type="button">로그인 링크</button>
+            <button id="signupButton" type="button">회원가입</button>
+            <button id="loginButton" type="button">로그인</button>
+          </div>
+          <div class="sync-actions">
             <button id="logoutButton" type="button">로그아웃</button>
+            <button id="resetPasswordButton" type="button">비밀번호 재설정</button>
           </div>
           <div class="sync-actions">
             <button id="pullButton" type="button">서버에서 불러오기</button>
