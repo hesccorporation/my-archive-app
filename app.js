@@ -485,6 +485,9 @@ function updateLayoutMode() {
   document.querySelectorAll("[data-view-mode]").forEach((button) => {
     button.classList.toggle("active", button.dataset.viewMode === state.viewMode);
   });
+  document.querySelectorAll("[data-mobile-view-mode]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.mobileViewMode === state.viewMode);
+  });
 }
 
 function renderCategories() {
@@ -1297,6 +1300,12 @@ els.viewToggle.addEventListener("click", (event) => {
   render();
 });
 
+function changeViewMode(viewMode) {
+  selectedIds.clear();
+  state.viewMode = viewMode;
+  render();
+}
+
 els.itemList.addEventListener("click", (event) => {
   const checkbox = event.target.closest("input[data-select-id]");
   if (checkbox) {
@@ -1361,6 +1370,13 @@ document.querySelectorAll("[data-mobile-view]").forEach((button) => {
         ? "전체"
         : "받은함";
     render();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+});
+
+document.querySelectorAll("[data-mobile-view-mode]").forEach((button) => {
+  button.addEventListener("click", () => {
+    changeViewMode(button.dataset.mobileViewMode);
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 });

@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#111827" />
     <title>내서랍</title>
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="stylesheet" href="./styles.css?v=11" />
+    <link rel="stylesheet" href="./styles.css?v=12" />
   </head>
   <body>
     <div class="app-shell">
@@ -153,6 +153,8 @@
       <button type="button" data-mobile-view="favorites">즐겨찾기</button>
       <button type="button" data-mobile-view="all">전체</button>
       <button type="button" id="mobileAddButton">추가</button>
+      <button type="button" data-mobile-view-mode="large">크게</button>
+      <button type="button" data-mobile-view-mode="compact">작게</button>
     </nav>
 
     <div class="image-modal" id="imageModal" hidden>
@@ -166,6 +168,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./app.js?v=11"></script>
+    <script src="./app.js?v=12"></script>
   </body>
 </html>

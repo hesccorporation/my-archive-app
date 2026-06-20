@@ -560,7 +560,7 @@ button {
 
 .item-list {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
 }
 
@@ -823,7 +823,9 @@ button {
   }
 
   .view-toggle {
-    align-self: flex-start;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
   }
 
   .import-panel {
@@ -908,7 +910,7 @@ button {
     left: 12px;
     z-index: 10;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 6px;
     border: 1px solid var(--line);
     border-radius: 8px;
@@ -924,6 +926,11 @@ button {
     background: #f1f5f9;
     color: #17202a;
     font-weight: 800;
+  }
+
+  .mobile-nav button.active {
+    background: var(--accent-soft);
+    color: var(--accent-strong);
   }
 }
 
@@ -990,7 +997,7 @@ button {
 
 @media (min-width: 1280px) {
   .item-list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
