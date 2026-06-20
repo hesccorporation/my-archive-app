@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#111827" />
     <title>내서랍</title>
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="stylesheet" href="./styles.css?v=15" />
+    <link rel="stylesheet" href="./styles.css?v=16" />
   </head>
   <body>
     <div class="app-shell">
@@ -96,14 +96,8 @@
                   <option value="file">파일</option>
                 </select>
               </label>
-              <label class="wide">
-                링크 또는 파일 위치
-                <input id="urlInput" type="url" placeholder="https://youtube.com/..." />
-              </label>
-              <label>
-                카테고리
-                <select id="categoryInput"></select>
-              </label>
+              <input id="urlInput" type="hidden" />
+              <select id="categoryInput" hidden></select>
               <label>
                 태그
                 <input id="tagsInput" type="text" placeholder="예: 타격, 참고자료" />
@@ -179,6 +173,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./app.js?v=15"></script>
+    <script src="./app.js?v=16"></script>
   </body>
 </html>
