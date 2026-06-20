@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#111827" />
+    <title>내서랍</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="카테고리">
+        <div class="brand">
+          <div class="brand-mark">ㄴ</div>
+          <div>
+            <h1>내서랍</h1>
+            <p>나중에 찾기 쉬운 개인 자료함</p>
+          </div>
+        </div>
+
+        <button class="primary-action" id="newItemButton" type="button">
+          <span aria-hidden="true">+</span>
+          새 자료
+        </button>
+
+        <nav class="category-nav" id="categoryNav"></nav>
+
+        <form class="category-form" id="categoryForm">
+          <label for="newCategory">카테고리 추가</label>
+          <div class="inline-input">
+            <input id="newCategory" name="newCategory" type="text" placeholder="예: 야구 영상" autocomplete="off" />
+            <button type="submit">추가</button>
+          </div>
+        </form>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="currentViewLabel">받은함</p>
+            <h2 id="currentViewTitle">정리할 자료</h2>
+          </div>
+          <div class="search-wrap">
+            <label class="sr-only" for="searchInput">검색</label>
+            <input id="searchInput" type="search" placeholder="제목, 메모, 태그, 링크 검색" />
+          </div>
+        </header>
+
+        <section class="composer" id="composer" aria-label="자료 저장">
+          <form id="itemForm">
+            <input type="hidden" id="editingId" />
+            <div class="form-grid">
+              <label>
+                제목
+                <input id="titleInput" type="text" placeholder="예: 오타니 타격 분석 영상" required />
+              </label>
+              <label>
+                종류
+                <select id="typeInput">
+                  <option value="link">링크</option>
+                  <option value="note">메모</option>
+                  <option value="image">이미지</option>
+                  <option value="video">영상</option>
+                  <option value="file">파일</option>
+                </select>
+              </label>
+              <label class="wide">
+                링크 또는 파일 위치
+                <input id="urlInput" type="url" placeholder="https://youtube.com/..." />
+              </label>
+              <label>
+                카테고리
+                <select id="categoryInput"></select>
+              </label>
+              <label>
+                태그
+                <input id="tagsInput" type="text" placeholder="예: 타격, 참고자료" />
+              </label>
+              <label class="wide">
+                메모
+                <textarea id="memoInput" rows="3" placeholder="왜 저장했는지 짧게 적어두기"></textarea>
+              </label>
+            </div>
+            <div class="form-actions">
+              <button class="ghost-button" id="cancelEditButton" type="button">취소</button>
+              <button class="save-button" type="submit">저장</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="import-panel" aria-label="카카오톡 대화 가져오기">
+          <div>
+            <p class="eyebrow">카톡 가져오기</p>
+            <h3>txt 가져오기와 이미지 붙여넣기</h3>
+            <p>카카오톡 txt는 파일로 가져오고, 캡처 이미지는 앱 화면에서 Ctrl+V로 바로 저장합니다.</p>
+          </div>
+          <div class="import-actions">
+            <label class="file-button" for="kakaoImportInput">txt 선택</label>
+            <input id="kakaoImportInput" type="file" accept=".txt,text/plain" />
+            <label class="file-button secondary" for="imageImportInput">사진/캡처 선택</label>
+            <input id="imageImportInput" type="file" accept="image/*" />
+            <p id="importStatus">아직 가져온 파일이 없습니다.</p>
+          </div>
+        </section>
+
+        <section class="content-toolbar" aria-label="목록 도구">
+          <div class="filter-tabs" id="filterTabs">
+            <button class="active" type="button" data-filter="all">전체</button>
+            <button type="button" data-filter="link">링크</button>
+            <button type="button" data-filter="note">메모</button>
+            <button type="button" data-filter="media">이미지/영상</button>
+            <button type="button" data-filter="file">파일</button>
+          </div>
+          <div class="bulk-actions">
+            <p id="resultCount">0개</p>
+            <button class="select-all-button" id="selectAllButton" type="button">모두 선택</button>
+            <button class="bulk-delete-button" id="bulkDeleteButton" type="button">선택 삭제</button>
+          </div>
+        </section>
+
+        <section class="item-list" id="itemList" aria-live="polite"></section>
+      </main>
+    </div>
+
+    <nav class="mobile-nav" aria-label="빠른 이동">
+      <button type="button" data-mobile-view="inbox">받은함</button>
+      <button type="button" data-mobile-view="favorites">즐겨찾기</button>
+      <button type="button" data-mobile-view="all">전체</button>
+      <button type="button" id="mobileAddButton">추가</button>
+    </nav>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

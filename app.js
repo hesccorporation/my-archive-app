@@ -1,0 +1,913 @@
+const STORAGE_KEY = "my-archive-app-state-v1";
+
+const defaultState = {
+  categories: ["받은함", "사업", "야구 영상", "공부 자료", "구매할 것"],
+  activeView: "받은함",
+  typeFilter: "all",
+  items: [
+    {
+      id: crypto.randomUUID(),
+      title: "야구 타격폼 분석 영상",
+      type: "link",
+      url: "https://www.youtube.com/",
+      category: "야구 영상",
+      tags: ["타격", "참고자료"],
+      memo: "유튜브에서 공유해서 저장할 자료의 예시입니다.",
+      favorite: true,
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: crypto.randomUUID(),
+      title: "신규 사업 아이디어",
+      type: "note",
+      url: "",
+      category: "사업",
+      tags: ["아이디어", "검토"],
+      memo: "떠오른 생각을 일단 받은함이나 사업 카테고리에 빠르게 넣어두면 됩니다.",
+      favorite: false,
+      createdAt: new Date(Date.now() - 86400000).toISOString()
+    }
+  ]
+};
+
+let state = loadState();
+let selectedIds = new Set();
+
+const els = {
+  categoryNav: document.querySelector("#categoryNav"),
+  categoryForm: document.querySelector("#categoryForm"),
+  newCategory: document.querySelector("#newCategory"),
+  itemForm: document.querySelector("#itemForm"),
+  editingId: document.querySelector("#editingId"),
+  titleInput: document.querySelector("#titleInput"),
+  typeInput: document.querySelector("#typeInput"),
+  urlInput: document.querySelector("#urlInput"),
+  categoryInput: document.querySelector("#categoryInput"),
+  tagsInput: document.querySelector("#tagsInput"),
+  memoInput: document.querySelector("#memoInput"),
+  cancelEditButton: document.querySelector("#cancelEditButton"),
+  searchInput: document.querySelector("#searchInput"),
+  itemList: document.querySelector("#itemList"),
+  resultCount: document.querySelector("#resultCount"),
+  filterTabs: document.querySelector("#filterTabs"),
+  currentViewLabel: document.querySelector("#currentViewLabel"),
+  currentViewTitle: document.querySelector("#currentViewTitle"),
+  newItemButton: document.querySelector("#newItemButton"),
+  mobileAddButton: document.querySelector("#mobileAddButton"),
+  composer: document.querySelector("#composer"),
+  kakaoImportInput: document.querySelector("#kakaoImportInput"),
+  imageImportInput: document.querySelector("#imageImportInput"),
+  importStatus: document.querySelector("#importStatus"),
+  bulkDeleteButton: document.querySelector("#bulkDeleteButton"),
+  selectAllButton: document.querySelector("#selectAllButton")
+};
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return defaultState;
+    const parsed = JSON.parse(saved);
+    return {
+      ...defaultState,
+      ...parsed,
+      categories: parsed.categories?.length ? parsed.categories : defaultState.categories,
+      items: Array.isArray(parsed.items) ? parsed.items : defaultState.items
+    };
+  } catch {
+    return defaultState;
+  }
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return true;
+  } catch {
+    els.importStatus.textContent = "저장 공간이 부족합니다. 오래된 이미지나 자료를 삭제한 뒤 다시 시도해 주세요.";
+    return false;
+  }
+}
+
+function parseSharedParams() {
+  const params = new URLSearchParams(window.location.search);
+  const title = params.get("title") || "";
+  const text = params.get("text") || "";
+  const url = params.get("url") || "";
+  const possibleUrl = url || findUrl(text);
+
+  if (!title && !text && !url) return;
+
+  els.titleInput.value = title || "공유한 자료";
+  els.typeInput.value = possibleUrl ? "link" : "note";
+  els.urlInput.value = possibleUrl;
+  els.memoInput.value = text.replace(possibleUrl, "").trim();
+  els.categoryInput.value = "받은함";
+  els.composer.classList.remove("collapsed");
+}
+
+function findUrl(text) {
+  return findUrls(text)[0] || "";
+}
+
+function findUrls(text) {
+  const normalized = text
+    .replace(/\u200b/g, "")
+    .replace(/(https?:\/\/)\s+/gi, "$1")
+    .replace(/(www\.)\s+/gi, "$1");
+  const pattern = /(?:https?:\/\/|www\.|m\.|youtu\.be\/|youtube\.com\/|naver\.me\/|bit\.ly\/|instagram\.com\/|tiktok\.com\/|x\.com\/|twitter\.com\/|smartstore\.naver\.com\/)[^\s<>"'가-힣]+/gi;
+  const urls = [...normalized.matchAll(pattern)].map((match) => normalizeUrl(match[0]));
+  return [...new Set(urls)];
+}
+
+function normalizeUrl(url) {
+  const clean = url
+    .replace(/[)\]}>,.]+$/, "")
+    .replace(/^m\.(?=youtube\.com|naver\.com|instagram\.com|tiktok\.com)/i, "https://m.");
+
+  if (/^https?:\/\//i.test(clean)) return clean;
+  if (/^(www\.|youtu\.be\/|youtube\.com\/|naver\.me\/|bit\.ly\/|instagram\.com\/|tiktok\.com\/|x\.com\/|twitter\.com\/|smartstore\.naver\.com\/)/i.test(clean)) {
+    return `https://${clean}`;
+  }
+  return clean;
+}
+
+function textWithoutUrls(text, urls) {
+  return urls.reduce((memo, url) => {
+    const raw = url.replace(/^https?:\/\//, "");
+    return memo
+      .replace(url, "")
+      .replace(raw, "")
+      .replace(raw.replace(/^www\./, ""), "");
+  }, text).replace(/\s+/g, " ").trim();
+}
+
+function render() {
+  renderCategories();
+  renderCategoryOptions();
+  renderHeader();
+  renderItems();
+  saveState();
+}
+
+function renderCategories() {
+  const systemViews = [
+    { name: "받은함", count: countByCategory("받은함") },
+    { name: "즐겨찾기", count: state.items.filter((item) => item.favorite).length },
+    { name: "전체", count: state.items.length }
+  ];
+
+  const customViews = state.categories
+    .filter((category) => category !== "받은함")
+    .map((category) => ({ name: category, count: countByCategory(category) }));
+
+  els.categoryNav.innerHTML = [...systemViews, ...customViews]
+    .map((view) => {
+      const active = view.name === state.activeView ? "active" : "";
+      const canDelete = state.categories.includes(view.name) && view.name !== "받은함";
+      const deleteButton = canDelete
+        ? `<button class="category-delete" type="button" data-delete-category="${escapeHtml(view.name)}" aria-label="${escapeHtml(view.name)} 카테고리 삭제">삭제</button>`
+        : "";
+
+      return `<div class="category-row">
+        <button class="category-button ${active}" type="button" data-view="${escapeHtml(view.name)}">
+          <span>${escapeHtml(view.name)}</span>
+          <span class="count">${view.count}</span>
+        </button>
+        ${deleteButton}
+      </div>`;
+    })
+    .join("");
+}
+
+function renderCategoryOptions() {
+  els.categoryInput.innerHTML = state.categories
+    .map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`)
+    .join("");
+}
+
+function renderHeader() {
+  const titles = {
+    "받은함": "정리할 자료",
+    "즐겨찾기": "중요한 자료",
+    "전체": "모든 자료"
+  };
+
+  els.currentViewLabel.textContent = state.activeView;
+  els.currentViewTitle.textContent = titles[state.activeView] || `${state.activeView} 자료`;
+}
+
+function renderItems() {
+  const items = getVisibleItems();
+  const visibleIds = new Set(items.map((item) => item.id));
+  selectedIds = new Set([...selectedIds].filter((id) => visibleIds.has(id)));
+  const selectedVisibleCount = items.filter((item) => selectedIds.has(item.id)).length;
+
+  els.resultCount.textContent = selectedIds.size
+    ? `${items.length}개 중 ${selectedVisibleCount}개 선택`
+    : `${items.length}개`;
+  els.bulkDeleteButton.disabled = selectedVisibleCount === 0;
+  els.bulkDeleteButton.textContent = selectedVisibleCount
+    ? `선택 ${selectedVisibleCount}개 삭제`
+    : "선택 삭제";
+  els.selectAllButton.disabled = items.length === 0;
+  els.selectAllButton.textContent = items.length && selectedVisibleCount === items.length
+    ? "선택 해제"
+    : "모두 선택";
+
+  if (!items.length) {
+    els.itemList.innerHTML = `
+      <div class="empty-state">
+        <h3>아직 자료가 없습니다</h3>
+        <p>새 자료를 저장하면 여기에서 바로 찾을 수 있습니다.</p>
+      </div>
+    `;
+    return;
+  }
+
+  els.itemList.innerHTML = items.map(renderItemCard).join("");
+}
+
+function getVisibleItems() {
+  const query = els.searchInput.value.trim().toLowerCase();
+  return state.items
+    .filter((item) => matchesView(item))
+    .filter((item) => matchesType(item))
+    .filter((item) => matchesSearch(item, query))
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+function renderItemCard(item) {
+  const checked = selectedIds.has(item.id) ? "checked" : "";
+  const tags = item.tags.map((tag) => `<span class="tag">#${escapeHtml(tag)}</span>`).join("");
+  const imagePreview = item.type === "image" && item.url
+    ? `<button class="image-preview-button" type="button" data-action="open-image" data-id="${item.id}"><img class="image-preview" src="${escapeAttribute(item.url)}" alt="${escapeAttribute(item.title)}" loading="lazy" /></button>`
+    : "";
+  const url = item.url && item.type !== "image"
+    ? `<a class="item-url" href="${escapeAttribute(item.url)}" target="_blank" rel="noreferrer">${escapeHtml(item.url)}</a>`
+    : "";
+
+  return `
+    <article class="item-card ${checked ? "selected" : ""}">
+      <div class="item-head">
+        <label class="select-item">
+          <input type="checkbox" data-select-id="${item.id}" ${checked} />
+          <span>선택</span>
+        </label>
+        <div class="item-title">
+          <h3>${escapeHtml(item.title)}</h3>
+          <div class="item-meta">
+            <span class="badge">${typeLabel(item.type)}</span>
+            <span class="badge">${escapeHtml(item.category)}</span>
+            <span>${formatDate(item.createdAt)}</span>
+          </div>
+        </div>
+        <div class="item-actions">
+          <button type="button" data-action="favorite" data-id="${item.id}">${item.favorite ? "즐겨찾기 해제" : "즐겨찾기"}</button>
+          <button type="button" data-action="edit" data-id="${item.id}">수정</button>
+          <button class="danger" type="button" data-action="delete" data-id="${item.id}">삭제</button>
+        </div>
+      </div>
+      ${imagePreview}
+      ${url}
+      ${item.memo ? `<p class="memo">${escapeHtml(item.memo)}</p>` : ""}
+      ${tags ? `<div class="tag-row">${tags}</div>` : ""}
+    </article>
+  `;
+}
+
+function matchesView(item) {
+  if (state.activeView === "전체") return true;
+  if (state.activeView === "즐겨찾기") return item.favorite;
+  return item.category === state.activeView;
+}
+
+function matchesType(item) {
+  if (state.typeFilter === "all") return true;
+  if (state.typeFilter === "media") return item.type === "image" || item.type === "video";
+  return item.type === state.typeFilter;
+}
+
+function matchesSearch(item, query) {
+  if (!query) return true;
+  const haystack = [
+    item.title,
+    item.url,
+    item.category,
+    item.memo,
+    item.type,
+    ...item.tags
+  ].join(" ").toLowerCase();
+  return haystack.includes(query);
+}
+
+function countByCategory(category) {
+  return state.items.filter((item) => item.category === category).length;
+}
+
+function typeLabel(type) {
+  const labels = {
+    link: "링크",
+    note: "메모",
+    image: "이미지",
+    video: "영상",
+    file: "파일"
+  };
+  return labels[type] || type;
+}
+
+function categoryForText(text) {
+  const value = text.toLowerCase();
+  const rules = [
+    { category: "사업", words: ["사업", "마케팅", "거래", "매출", "창업", "고객", "세금", "계약"] },
+    { category: "야구 영상", words: ["야구", "타격", "투수", "오타니", "mlb", "kbo", "홈런", "피칭"] },
+    { category: "공부 자료", words: ["공부", "강의", "수업", "논문", "자료", "영어", "개념", "튜토리얼"] },
+    { category: "구매할 것", words: ["구매", "쇼핑", "살 것", "사야", "가격", "쿠팡", "네이버쇼핑"] }
+  ];
+
+  const matched = rules.find((rule) =>
+    state.categories.includes(rule.category) && rule.words.some((word) => value.includes(word))
+  );
+  return matched?.category || "받은함";
+}
+
+function titleFromMessage(message, url) {
+  if (url) {
+    try {
+      const hostname = new URL(url).hostname.replace(/^www\./, "");
+      if (hostname.includes("youtube.com") || hostname.includes("youtu.be")) return "유튜브 링크";
+      if (hostname.includes("naver.com")) return "네이버 링크";
+      if (hostname.includes("instagram.com")) return "인스타그램 링크";
+      return `${hostname} 링크`;
+    } catch {
+      return "저장한 링크";
+    }
+  }
+
+  const clean = message.replace(/\s+/g, " ").trim();
+  return clean.length > 42 ? `${clean.slice(0, 42)}...` : clean || "카톡 메모";
+}
+
+function parseKakaoDateSeparator(line) {
+  const match = line.match(/(\d{4})[년.\/-]\s*(\d{1,2})[월.\/-]\s*(\d{1,2})일?/);
+  if (!match) return "";
+  const [, year, month, day] = match;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+function toIsoDate(datePart, meridiem, hourText, minuteText) {
+  if (!datePart) return new Date().toISOString();
+  let hour = Number(hourText || 0);
+  const minute = Number(minuteText || 0);
+
+  if (meridiem === "오후" && hour < 12) hour += 12;
+  if (meridiem === "오전" && hour === 12) hour = 0;
+
+  const [year, month, day] = datePart.split("-").map(Number);
+  return new Date(year, month - 1, day, hour, minute).toISOString();
+}
+
+function parseKakaoExport(text) {
+  const lines = text.replace(/\r/g, "").split("\n");
+  const messages = [];
+  let currentDate = "";
+  let currentMessage = null;
+
+  lines.forEach((rawLine) => {
+    const line = rawLine.trimEnd();
+    if (!line.trim()) return;
+
+    const dateFromSeparator = parseKakaoDateSeparator(line);
+    if (dateFromSeparator) {
+      currentDate = dateFromSeparator;
+      return;
+    }
+
+    const bracketMatch = line.match(/^\[(.+?)\]\s*\[(오전|오후)?\s*(\d{1,2}):(\d{2})\]\s*(.*)$/);
+    const commaMatch = line.match(/^(\d{4})[.\-\/]\s*(\d{1,2})[.\-\/]\s*(\d{1,2})[.\-\/]?\s*(오전|오후)?\s*(\d{1,2}):(\d{2}),?\s*(.+?)\s*:\s*(.*)$/);
+    const noSenderCommaMatch = line.match(/^(\d{4})[.\-\/]\s*(\d{1,2})[.\-\/]\s*(\d{1,2})[.\-\/]?\s*(오전|오후)?\s*(\d{1,2}):(\d{2})\s*(.*)$/);
+    const timeColonMatch = line.match(/^(오전|오후)?\s*(\d{1,2}):(\d{2})\s*,?\s*(.+?)\s*:\s*(.*)$/);
+    const simpleColonMatch = line.match(/^(.{1,40}?)\s*:\s*(.+)$/);
+
+    if (bracketMatch) {
+      const [, sender, meridiem = "", hour, minute, message] = bracketMatch;
+      currentMessage = {
+        sender,
+        message: message.trim(),
+        createdAt: toIsoDate(currentDate, meridiem, hour, minute)
+      };
+      messages.push(currentMessage);
+      return;
+    }
+
+    if (commaMatch) {
+      const [, year, month, day, meridiem = "", hour, minute, sender, message] = commaMatch;
+      const datePart = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+      currentMessage = {
+        sender,
+        message: message.trim(),
+        createdAt: toIsoDate(datePart, meridiem, hour, minute)
+      };
+      messages.push(currentMessage);
+      return;
+    }
+
+    if (noSenderCommaMatch) {
+      const [, year, month, day, meridiem = "", hour, minute, message] = noSenderCommaMatch;
+      const datePart = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+      currentMessage = {
+        sender: "",
+        message: message.trim(),
+        createdAt: toIsoDate(datePart, meridiem, hour, minute)
+      };
+      messages.push(currentMessage);
+      return;
+    }
+
+    if (timeColonMatch) {
+      const [, meridiem = "", hour, minute, sender, message] = timeColonMatch;
+      currentMessage = {
+        sender,
+        message: message.trim(),
+        createdAt: toIsoDate(currentDate, meridiem, hour, minute)
+      };
+      messages.push(currentMessage);
+      return;
+    }
+
+    if (simpleColonMatch && !line.includes("저장한 날짜") && !line.includes("대화 내용")) {
+      const [, sender, message] = simpleColonMatch;
+      currentMessage = {
+        sender,
+        message: message.trim(),
+        createdAt: currentDate ? toIsoDate(currentDate, "", "0", "0") : new Date().toISOString()
+      };
+      messages.push(currentMessage);
+      return;
+    }
+
+    if (currentMessage) {
+      currentMessage.message = `${currentMessage.message}\n${line.trim()}`.trim();
+    }
+  });
+
+  const parsedMessages = messages.filter((entry) => entry.message);
+  if (parsedMessages.length) return parsedMessages;
+
+  return lines
+    .map((line) => line.trim())
+    .filter((line) => line && !parseKakaoDateSeparator(line) && !line.includes("대화 내용") && !line.includes("저장한 날짜"))
+    .map((message) => ({
+      sender: "",
+      message,
+      createdAt: new Date().toISOString()
+    }));
+}
+
+function previewText(text) {
+  return text
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 4)
+    .join(" / ")
+    .slice(0, 180);
+}
+
+function buildItemsFromKakaoMessages(messages) {
+  const existingKeys = new Set(state.items.map((item) => `${item.url}|${item.memo}|${item.title}`));
+  const items = [];
+  let linkCount = 0;
+  let noteCount = 0;
+
+  messages.forEach((entry) => {
+    const urls = findUrls(entry.message);
+    const baseTags = ["카톡가져오기"];
+
+    if (urls.length) {
+      urls.forEach((url) => {
+        const memo = textWithoutUrls(entry.message, urls);
+        const item = {
+          id: crypto.randomUUID(),
+          title: titleFromMessage(entry.message, url),
+          type: "link",
+          url,
+          category: categoryForText(entry.message),
+          tags: baseTags,
+          memo,
+          favorite: false,
+          createdAt: entry.createdAt
+        };
+        const key = `${item.url}|${item.memo}|${item.title}`;
+        if (!existingKeys.has(key)) {
+          existingKeys.add(key);
+          items.push(item);
+          linkCount += 1;
+        }
+      });
+      return;
+    }
+
+    const item = {
+      id: crypto.randomUUID(),
+      title: titleFromMessage(entry.message, ""),
+      type: "note",
+      url: "",
+      category: categoryForText(entry.message),
+      tags: baseTags,
+      memo: entry.message,
+      favorite: false,
+      createdAt: entry.createdAt
+    };
+    const key = `${item.url}|${item.memo}|${item.title}`;
+    if (!existingKeys.has(key)) {
+      existingKeys.add(key);
+      items.push(item);
+      noteCount += 1;
+    }
+  });
+
+  return { items, linkCount, noteCount };
+}
+
+function importKakaoFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    const text = String(reader.result || "");
+    const messages = parseKakaoExport(text);
+    const { items: importedItems, linkCount, noteCount } = buildItemsFromKakaoMessages(messages);
+
+    if (!messages.length) {
+      els.importStatus.textContent = `읽을 수 있는 카톡 메시지를 찾지 못했습니다. 파일 앞부분: ${previewText(text) || "비어 있음"}`;
+      return;
+    }
+
+    if (!importedItems.length) {
+      els.importStatus.textContent = `이미 저장된 자료입니다. 새로 추가된 항목은 없습니다.`;
+      return;
+    }
+
+    state.items = [...importedItems, ...state.items];
+    state.activeView = "받은함";
+    state.typeFilter = "all";
+    document.querySelectorAll("[data-filter]").forEach((tab) => tab.classList.remove("active"));
+    document.querySelector('[data-filter="all"]')?.classList.add("active");
+    render();
+    els.importStatus.textContent = `${file.name}에서 ${importedItems.length}개를 가져왔습니다. 링크 ${linkCount}개, 메모 ${noteCount}개`;
+  };
+
+  reader.onerror = () => {
+    els.importStatus.textContent = "파일을 읽는 중 문제가 생겼습니다.";
+  };
+
+  reader.readAsText(file, "utf-8");
+}
+
+function formatDate(value) {
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date(value));
+}
+
+function activeSaveCategory() {
+  return state.categories.includes(state.activeView) ? state.activeView : "받은함";
+}
+
+function resetForm() {
+  els.editingId.value = "";
+  els.itemForm.reset();
+  els.typeInput.value = "link";
+  els.categoryInput.value = activeSaveCategory();
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = src;
+  });
+}
+
+async function imageFileToStoredDataUrl(file) {
+  const originalDataUrl = await readFileAsDataUrl(file);
+  if (file.size < 750000) return originalDataUrl;
+
+  const image = await loadImage(originalDataUrl);
+  const maxSide = 1600;
+  const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(image, 0, 0, width, height);
+  return canvas.toDataURL("image/jpeg", 0.86);
+}
+
+async function addPastedImage(file) {
+  const dataUrl = await imageFileToStoredDataUrl(file);
+  const now = new Date();
+  const item = {
+    id: crypto.randomUUID(),
+    title: `붙여넣은 이미지 ${new Intl.DateTimeFormat("ko-KR", {
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    }).format(now)}`,
+    type: "image",
+    url: dataUrl,
+    category: activeSaveCategory(),
+    tags: ["이미지", "붙여넣기"],
+    memo: "Ctrl+V로 붙여넣은 이미지",
+    favorite: false,
+    createdAt: now.toISOString()
+  };
+
+  state.items = [item, ...state.items];
+  state.activeView = item.category;
+  render();
+  els.importStatus.textContent = "이미지를 저장했습니다.";
+}
+
+function handlePaste(event) {
+  const items = [...(event.clipboardData?.items || [])];
+  const imageItem = items.find((item) => item.type.startsWith("image/"));
+  if (!imageItem) return;
+
+  const file = imageItem.getAsFile();
+  if (!file) return;
+
+  event.preventDefault();
+  addPastedImage(file).catch(() => {
+    els.importStatus.textContent = "이미지를 붙여넣는 중 문제가 생겼습니다.";
+  });
+}
+
+function saveItem(event) {
+  event.preventDefault();
+
+  const editingId = els.editingId.value;
+  const item = {
+    id: editingId || crypto.randomUUID(),
+    title: els.titleInput.value.trim(),
+    type: els.typeInput.value,
+    url: els.urlInput.value.trim(),
+    category: els.categoryInput.value,
+    tags: els.tagsInput.value.split(",").map((tag) => tag.trim()).filter(Boolean),
+    memo: els.memoInput.value.trim(),
+    favorite: false,
+    createdAt: new Date().toISOString()
+  };
+
+  if (!item.title) return;
+
+  if (editingId) {
+    const oldItem = state.items.find((entry) => entry.id === editingId);
+    state.items = state.items.map((entry) =>
+      entry.id === editingId
+        ? { ...item, favorite: oldItem?.favorite || false, createdAt: oldItem?.createdAt || item.createdAt }
+        : entry
+    );
+  } else {
+    state.items = [item, ...state.items];
+  }
+
+  resetForm();
+  render();
+}
+
+function editItem(id) {
+  const item = state.items.find((entry) => entry.id === id);
+  if (!item) return;
+
+  els.editingId.value = item.id;
+  els.titleInput.value = item.title;
+  els.typeInput.value = item.type;
+  els.urlInput.value = item.url;
+  els.categoryInput.value = item.category;
+  els.tagsInput.value = item.tags.join(", ");
+  els.memoInput.value = item.memo;
+  els.composer.classList.remove("collapsed");
+  els.titleInput.focus();
+}
+
+function deleteItem(id) {
+  const item = state.items.find((entry) => entry.id === id);
+  if (!item) return;
+  const ok = confirm(`"${item.title}" 자료를 삭제할까요?`);
+  if (!ok) return;
+  state.items = state.items.filter((entry) => entry.id !== id);
+  selectedIds.delete(id);
+  render();
+}
+
+function toggleVisibleSelection() {
+  const visibleItems = getVisibleItems();
+  if (!visibleItems.length) return;
+
+  const allVisibleSelected = visibleItems.every((item) => selectedIds.has(item.id));
+  if (allVisibleSelected) {
+    visibleItems.forEach((item) => selectedIds.delete(item.id));
+  } else {
+    visibleItems.forEach((item) => selectedIds.add(item.id));
+  }
+
+  renderItems();
+}
+
+function toggleItemSelection(id, checked) {
+  if (checked) {
+    selectedIds.add(id);
+  } else {
+    selectedIds.delete(id);
+  }
+
+  renderItems();
+}
+
+function deleteSelectedItems() {
+  if (!selectedIds.size) return;
+
+  const ok = confirm(`선택한 자료 ${selectedIds.size}개를 삭제할까요?`);
+  if (!ok) return;
+
+  state.items = state.items.filter((item) => !selectedIds.has(item.id));
+  selectedIds.clear();
+  render();
+}
+
+function toggleFavorite(id) {
+  state.items = state.items.map((item) =>
+    item.id === id ? { ...item, favorite: !item.favorite } : item
+  );
+  render();
+}
+
+function addCategory(event) {
+  event.preventDefault();
+  const value = els.newCategory.value.trim();
+  if (!value || state.categories.includes(value)) return;
+  state.categories.push(value);
+  els.newCategory.value = "";
+  state.activeView = value;
+  render();
+}
+
+function deleteCategory(category) {
+  if (category === "받은함" || !state.categories.includes(category)) return;
+
+  const itemCount = countByCategory(category);
+  const message = itemCount
+    ? `"${category}" 카테고리를 삭제할까요?\n안에 있던 자료 ${itemCount}개는 받은함으로 옮겨집니다.`
+    : `"${category}" 카테고리를 삭제할까요?`;
+  const ok = confirm(message);
+  if (!ok) return;
+
+  state.categories = state.categories.filter((entry) => entry !== category);
+  state.items = state.items.map((item) =>
+    item.category === category ? { ...item, category: "받은함" } : item
+  );
+
+  if (state.activeView === category) {
+    state.activeView = "받은함";
+  }
+
+  resetForm();
+  render();
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function escapeAttribute(value) {
+  return escapeHtml(value).replaceAll("`", "&#096;");
+}
+
+els.categoryNav.addEventListener("click", (event) => {
+  const deleteButton = event.target.closest("button[data-delete-category]");
+  if (deleteButton) {
+    deleteCategory(deleteButton.dataset.deleteCategory);
+    return;
+  }
+
+  const button = event.target.closest("button[data-view]");
+  if (!button) return;
+  selectedIds.clear();
+  state.activeView = button.dataset.view;
+  render();
+});
+
+els.categoryForm.addEventListener("submit", addCategory);
+els.itemForm.addEventListener("submit", saveItem);
+
+els.kakaoImportInput.addEventListener("change", (event) => {
+  importKakaoFile(event.target.files?.[0]);
+  event.target.value = "";
+});
+
+els.imageImportInput.addEventListener("change", (event) => {
+  const file = event.target.files?.[0];
+  if (file) {
+    addPastedImage(file).catch(() => {
+      els.importStatus.textContent = "이미지를 가져오는 중 문제가 생겼습니다.";
+    });
+  }
+  event.target.value = "";
+});
+
+els.selectAllButton.addEventListener("click", toggleVisibleSelection);
+els.bulkDeleteButton.addEventListener("click", deleteSelectedItems);
+
+els.cancelEditButton.addEventListener("click", () => {
+  resetForm();
+  els.composer.classList.add("collapsed");
+});
+
+els.searchInput.addEventListener("input", renderItems);
+
+els.filterTabs.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-filter]");
+  if (!button) return;
+  selectedIds.clear();
+  state.typeFilter = button.dataset.filter;
+  document.querySelectorAll("[data-filter]").forEach((tab) => tab.classList.remove("active"));
+  button.classList.add("active");
+  render();
+});
+
+els.itemList.addEventListener("click", (event) => {
+  const checkbox = event.target.closest("input[data-select-id]");
+  if (checkbox) {
+    toggleItemSelection(checkbox.dataset.selectId, checkbox.checked);
+    return;
+  }
+
+  const button = event.target.closest("button[data-action]");
+  if (!button) return;
+  const { action, id } = button.dataset;
+
+  if (action === "favorite") toggleFavorite(id);
+  if (action === "edit") editItem(id);
+  if (action === "delete") deleteItem(id);
+  if (action === "open-image") {
+    const item = state.items.find((entry) => entry.id === id);
+    if (item?.url) window.open(item.url, "_blank", "noreferrer");
+  }
+});
+
+document.addEventListener("paste", handlePaste);
+
+els.newItemButton.addEventListener("click", () => {
+  resetForm();
+  els.composer.classList.toggle("collapsed");
+  if (!els.composer.classList.contains("collapsed")) els.titleInput.focus();
+});
+
+els.mobileAddButton.addEventListener("click", () => {
+  resetForm();
+  els.composer.classList.remove("collapsed");
+  els.composer.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+document.querySelectorAll("[data-mobile-view]").forEach((button) => {
+  button.addEventListener("click", () => {
+    selectedIds.clear();
+    state.activeView = button.dataset.mobileView === "favorites"
+      ? "즐겨찾기"
+      : button.dataset.mobileView === "all"
+        ? "전체"
+        : "받은함";
+    render();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+});
+
+if ("serviceWorker" in navigator && location.protocol !== "file:") {
+  navigator.serviceWorker.register("./sw.js").catch(() => {});
+}
+
+resetForm();
+render();
+parseSharedParams();
