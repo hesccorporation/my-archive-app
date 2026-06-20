@@ -46,6 +46,7 @@ let remoteReady = false;
 let remoteSaveTimer = null;
 let suppressRemoteSave = false;
 let activeImageItemId = "";
+let activeDetailItemId = "";
 
 const els = {
   categoryNav: document.querySelector("#categoryNav"),
@@ -93,7 +94,8 @@ const els = {
   modalSaveButton: document.querySelector("#modalSaveButton"),
   detailModal: document.querySelector("#detailModal"),
   detailBody: document.querySelector("#detailBody"),
-  detailCloseButton: document.querySelector("#detailCloseButton")
+  detailCloseButton: document.querySelector("#detailCloseButton"),
+  detailEditButton: document.querySelector("#detailEditButton")
 };
 
 function loadState() {
@@ -1293,6 +1295,7 @@ function detailRow(label, value, options = {}) {
 
 function openDetailModal(item) {
   if (!item) return;
+  activeDetailItemId = item.id;
   const content = item.content || (item.type === "link" && item.url ? item.url : "");
   const tags = item.tags?.length ? item.tags.map((tag) => `#${tag}`).join(" ") : "";
   const image = item.type === "image" && item.url
@@ -1317,9 +1320,18 @@ function openDetailModal(item) {
 }
 
 function closeDetailModal() {
+  activeDetailItemId = "";
   els.detailModal.hidden = true;
   els.detailBody.innerHTML = "";
   document.body.classList.remove("modal-open");
+}
+
+function editActiveDetailItem() {
+  const itemId = activeDetailItemId;
+  if (!itemId) return;
+  closeDetailModal();
+  editItem(itemId);
+  els.composer.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 els.categoryNav.addEventListener("click", (event) => {
@@ -1443,6 +1455,7 @@ els.imageModal.addEventListener("click", (event) => {
   if (event.target === els.imageModal) closeImageModal();
 });
 els.detailCloseButton.addEventListener("click", closeDetailModal);
+els.detailEditButton.addEventListener("click", editActiveDetailItem);
 els.detailModal.addEventListener("click", (event) => {
   if (event.target === els.detailModal) closeDetailModal();
 });

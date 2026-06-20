@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#111827" />
     <title>내서랍</title>
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="stylesheet" href="./styles.css?v=17" />
+    <link rel="stylesheet" href="./styles.css?v=18" />
   </head>
   <body>
     <div class="app-shell">
@@ -175,6 +175,7 @@
     <div class="detail-modal" id="detailModal" hidden>
       <div class="detail-modal-panel" role="dialog" aria-modal="true" aria-label="자료 상세 보기">
         <div class="detail-modal-actions">
+          <button id="detailEditButton" type="button">수정</button>
           <button id="detailCloseButton" type="button">닫기</button>
         </div>
         <div class="detail-body" id="detailBody"></div>
@@ -182,6 +183,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./app.js?v=17"></script>
+    <script src="./app.js?v=18"></script>
   </body>
 </html>

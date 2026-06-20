@@ -1,4 +1,4 @@
-const CACHE_NAME = "my-archive-app-v17";
+const CACHE_NAME = "my-archive-app-v18";
 const ASSETS = [
   "./",
   "./index.html",
