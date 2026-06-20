@@ -562,6 +562,9 @@ function renderItemCard(item) {
   const url = item.url && item.type !== "image"
     ? `<a class="item-url" href="${escapeAttribute(item.url)}" target="_blank" rel="noreferrer">${escapeHtml(item.url)}</a>`
     : "";
+  const imageSaveButton = item.type === "image" && item.url
+    ? `<button type="button" data-action="save-image" data-id="${item.id}">저장</button>`
+    : "";
 
   return `
     <article class="item-card ${checked ? "selected" : ""}">
@@ -580,6 +583,7 @@ function renderItemCard(item) {
         </div>
         <div class="item-actions">
           <button type="button" data-action="favorite" data-id="${item.id}">${item.favorite ? "즐겨찾기 해제" : "즐겨찾기"}</button>
+          ${imageSaveButton}
           <button type="button" data-action="edit" data-id="${item.id}">수정</button>
           <button class="danger" type="button" data-action="delete" data-id="${item.id}">삭제</button>
         </div>
@@ -1122,6 +1126,35 @@ function escapeAttribute(value) {
   return escapeHtml(value).replaceAll("`", "&#096;");
 }
 
+function imageExtension(dataUrl) {
+  const match = dataUrl.match(/^data:image\/([a-zA-Z0-9+.-]+);/);
+  const type = match?.[1]?.toLowerCase() || "png";
+  if (type === "jpeg") return "jpg";
+  if (type === "svg+xml") return "svg";
+  return type;
+}
+
+function filenameFromTitle(title, extension) {
+  const safeTitle = title
+    .replace(/[\\/:*?"<>|]+/g, "")
+    .replace(/\s+/g, "-")
+    .slice(0, 40) || "image";
+  return `${safeTitle}.${extension}`;
+}
+
+function saveImage(item) {
+  if (!item?.url) return;
+  const extension = imageExtension(item.url);
+  const filename = filenameFromTitle(item.title, extension);
+  const link = document.createElement("a");
+  link.href = item.url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  els.importStatus.textContent = "이미지 저장을 시작했습니다. 휴대폰에서 안 되면 이미지를 눌러 새 탭에서 길게 눌러 저장하세요.";
+}
+
 els.categoryNav.addEventListener("click", (event) => {
   const deleteButton = event.target.closest("button[data-delete-category]");
   if (deleteButton) {
@@ -1198,6 +1231,10 @@ els.itemList.addEventListener("click", (event) => {
   if (action === "open-image") {
     const item = state.items.find((entry) => entry.id === id);
     if (item?.url) window.open(item.url, "_blank", "noreferrer");
+  }
+  if (action === "save-image") {
+    const item = state.items.find((entry) => entry.id === id);
+    saveImage(item);
   }
 });
 
