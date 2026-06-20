@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#111827" />
     <title>내서랍</title>
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="stylesheet" href="./styles.css?v=12" />
+    <link rel="stylesheet" href="./styles.css?v=14" />
   </head>
   <body>
     <div class="app-shell">
@@ -71,6 +71,16 @@
         <section class="composer" id="composer" aria-label="자료 저장">
           <form id="itemForm">
             <input type="hidden" id="editingId" />
+            <div class="quick-save-grid">
+              <label class="wide">
+                내용
+                <textarea id="quickInput" rows="4" placeholder="링크를 붙여넣거나 메모를 적어주세요. 이미지는 Ctrl+V 또는 사진/캡처 선택으로 저장됩니다."></textarea>
+              </label>
+              <label>
+                카테고리
+                <select id="quickCategoryInput"></select>
+              </label>
+            </div>
             <div class="form-grid">
               <label>
                 제목
@@ -104,13 +114,14 @@
               </label>
             </div>
             <div class="form-actions">
+              <button class="ghost-button" id="advancedToggleButton" type="button">자세히</button>
               <button class="ghost-button" id="cancelEditButton" type="button">취소</button>
               <button class="save-button" type="submit">저장</button>
             </div>
           </form>
         </section>
 
-        <section class="import-panel" aria-label="카카오톡 대화 가져오기">
+        <section class="import-panel" hidden aria-label="카카오톡 대화 가져오기">
           <div>
             <p class="eyebrow">카톡 가져오기</p>
             <h3>txt 가져오기와 이미지 붙여넣기</h3>
@@ -168,6 +179,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./app.js?v=12"></script>
+    <script src="./app.js?v=14"></script>
   </body>
 </html>

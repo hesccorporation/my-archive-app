@@ -53,13 +53,16 @@ const els = {
   newCategory: document.querySelector("#newCategory"),
   itemForm: document.querySelector("#itemForm"),
   editingId: document.querySelector("#editingId"),
+  quickInput: document.querySelector("#quickInput"),
   titleInput: document.querySelector("#titleInput"),
   typeInput: document.querySelector("#typeInput"),
   urlInput: document.querySelector("#urlInput"),
   categoryInput: document.querySelector("#categoryInput"),
+  quickCategoryInput: document.querySelector("#quickCategoryInput"),
   tagsInput: document.querySelector("#tagsInput"),
   memoInput: document.querySelector("#memoInput"),
   cancelEditButton: document.querySelector("#cancelEditButton"),
+  advancedToggleButton: document.querySelector("#advancedToggleButton"),
   searchInput: document.querySelector("#searchInput"),
   itemList: document.querySelector("#itemList"),
   resultCount: document.querySelector("#resultCount"),
@@ -521,9 +524,17 @@ function renderCategories() {
 }
 
 function renderCategoryOptions() {
-  els.categoryInput.innerHTML = state.categories
+  const options = state.categories
     .map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`)
     .join("");
+  els.categoryInput.innerHTML = options;
+  els.quickCategoryInput.innerHTML = options;
+  els.categoryInput.value = state.categories.includes(els.categoryInput.value)
+    ? els.categoryInput.value
+    : activeSaveCategory();
+  els.quickCategoryInput.value = state.categories.includes(els.quickCategoryInput.value)
+    ? els.quickCategoryInput.value
+    : activeSaveCategory();
 }
 
 function renderHeader() {
@@ -932,8 +943,12 @@ function activeSaveCategory() {
 function resetForm() {
   els.editingId.value = "";
   els.itemForm.reset();
+  els.quickInput.value = "";
   els.typeInput.value = "link";
   els.categoryInput.value = activeSaveCategory();
+  els.quickCategoryInput.value = activeSaveCategory();
+  els.composer.classList.remove("advanced-open");
+  els.advancedToggleButton.textContent = "\uc790\uc138\ud788";
 }
 
 function readFileAsDataUrl(file) {
@@ -984,7 +999,7 @@ async function addPastedImage(file) {
     }).format(now)}`,
     type: "image",
     url: dataUrl,
-    category: activeSaveCategory(),
+    category: els.quickCategoryInput.value || activeSaveCategory(),
     tags: ["이미지", "붙여넣기"],
     memo: "Ctrl+V로 붙여넣은 이미지",
     favorite: false,
@@ -1011,23 +1026,42 @@ function handlePaste(event) {
   });
 }
 
+function titleFromQuickText(text, url) {
+  const cleanText = textWithoutUrls(text, url ? [url] : []).trim();
+  const source = cleanText || url || "새 메모";
+  return source.replace(/\s+/g, " ").slice(0, 48);
+}
+
+function typeFromQuickText(text, url) {
+  if (url) return "link";
+  return text.trim() ? "note" : els.typeInput.value;
+}
+
 function saveItem(event) {
   event.preventDefault();
 
   const editingId = els.editingId.value;
+  const quickText = els.quickInput.value.trim();
+  const quickUrl = findUrl(quickText);
+  const detailUrl = els.urlInput.value.trim();
+  if (!quickText && !els.titleInput.value.trim() && !detailUrl && !els.memoInput.value.trim()) return;
+  const url = detailUrl || quickUrl;
+  const type = els.typeInput.value && (detailUrl || !quickText)
+    ? els.typeInput.value
+    : typeFromQuickText(quickText, url);
+  const memo = els.memoInput.value.trim() || textWithoutUrls(quickText, url ? [url] : []);
+  const title = els.titleInput.value.trim() || titleFromQuickText(quickText, url);
   const item = {
     id: editingId || crypto.randomUUID(),
-    title: els.titleInput.value.trim(),
-    type: els.typeInput.value,
-    url: els.urlInput.value.trim(),
-    category: els.categoryInput.value,
+    title,
+    type,
+    url,
+    category: els.quickCategoryInput.value || els.categoryInput.value,
     tags: els.tagsInput.value.split(",").map((tag) => tag.trim()).filter(Boolean),
-    memo: els.memoInput.value.trim(),
+    memo,
     favorite: false,
     createdAt: new Date().toISOString()
   };
-
-  if (!item.title) return;
 
   if (editingId) {
     const oldItem = state.items.find((entry) => entry.id === editingId);
@@ -1049,14 +1083,20 @@ function editItem(id) {
   if (!item) return;
 
   els.editingId.value = item.id;
+  els.quickInput.value = item.type === "link" && item.url
+    ? `${item.url}\n${item.memo}`.trim()
+    : item.memo || item.title;
   els.titleInput.value = item.title;
   els.typeInput.value = item.type;
   els.urlInput.value = item.url;
   els.categoryInput.value = item.category;
+  els.quickCategoryInput.value = item.category;
   els.tagsInput.value = item.tags.join(", ");
   els.memoInput.value = item.memo;
   els.composer.classList.remove("collapsed");
-  els.titleInput.focus();
+  els.composer.classList.add("advanced-open");
+  els.advancedToggleButton.textContent = "\uac04\ub2e8\ud788";
+  els.quickInput.focus();
 }
 
 function deleteItem(id) {
@@ -1280,6 +1320,13 @@ els.cancelEditButton.addEventListener("click", () => {
   els.composer.classList.add("collapsed");
 });
 
+els.advancedToggleButton.addEventListener("click", () => {
+  els.composer.classList.toggle("advanced-open");
+  els.advancedToggleButton.textContent = els.composer.classList.contains("advanced-open")
+    ? "\uac04\ub2e8\ud788"
+    : "\uc790\uc138\ud788";
+});
+
 els.searchInput.addEventListener("input", renderItems);
 
 els.filterTabs.addEventListener("click", (event) => {
@@ -1352,13 +1399,14 @@ window.addEventListener("resize", () => {
 els.newItemButton.addEventListener("click", () => {
   resetForm();
   els.composer.classList.toggle("collapsed");
-  if (!els.composer.classList.contains("collapsed")) els.titleInput.focus();
+  if (!els.composer.classList.contains("collapsed")) els.quickInput.focus();
 });
 
 els.mobileAddButton.addEventListener("click", () => {
   resetForm();
   els.composer.classList.remove("collapsed");
   els.composer.scrollIntoView({ behavior: "smooth", block: "start" });
+  els.quickInput.focus();
 });
 
 document.querySelectorAll("[data-mobile-view]").forEach((button) => {
@@ -1387,6 +1435,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
 
 initializeStorage().finally(() => {
   initializeAuth().finally(() => {
+    els.titleInput.removeAttribute("required");
     resetForm();
     render();
     parseSharedParams();

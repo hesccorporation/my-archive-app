@@ -348,10 +348,39 @@ button {
   padding: 18px;
 }
 
-.form-grid {
+.quick-save-grid {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 260px);
+  gap: 14px;
+}
+
+.quick-save-grid label {
+  display: grid;
+  gap: 7px;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.quick-save-grid .wide {
+  min-width: 0;
+}
+
+.quick-save-grid textarea {
+  min-height: 104px;
+}
+
+.form-grid {
+  display: none;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.composer.advanced-open .form-grid {
+  display: grid;
 }
 
 .form-grid label {
@@ -809,6 +838,10 @@ button {
   }
 
   .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-save-grid {
     grid-template-columns: 1fr;
   }
 
