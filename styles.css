@@ -419,6 +419,10 @@ button {
   padding: 16px;
 }
 
+.import-panel[hidden] {
+  display: none !important;
+}
+
 .import-panel h3,
 .import-panel p {
   margin: 0;
