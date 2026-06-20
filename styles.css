@@ -831,7 +831,61 @@ button {
   }
 
   .item-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .item-card {
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .select-item {
+    min-height: 24px;
+    gap: 4px;
+    font-size: 11px;
+  }
+
+  .select-item input {
+    width: 15px;
+    height: 15px;
+  }
+
+  .item-title h3 {
+    font-size: 13px;
+    -webkit-line-clamp: 2;
+  }
+
+  .item-meta {
+    gap: 4px;
+    font-size: 11px;
+  }
+
+  .badge {
+    min-height: 20px;
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+
+  .memo,
+  .item-url {
+    font-size: 11px;
+    line-height: 1.35;
+    -webkit-line-clamp: 2;
+  }
+
+  .tag-row {
+    display: none;
+  }
+
+  .item-actions {
+    gap: 4px;
+  }
+
+  .item-actions button {
+    min-height: 28px;
+    padding: 0 6px;
+    font-size: 11px;
   }
 
   .mobile-nav {
@@ -875,7 +929,18 @@ button {
   }
 
   .item-list {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .item-card {
+    padding: 7px;
+  }
+
+  .item-actions button {
+    min-height: 26px;
+    padding: 0 5px;
+    font-size: 10px;
   }
 }
 
