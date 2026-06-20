@@ -9,6 +9,7 @@ const defaultState = {
   categories: ["받은함", "사업", "야구 영상", "공부 자료", "구매할 것"],
   activeView: "받은함",
   typeFilter: "all",
+  viewMode: "large",
   items: [
     {
       id: crypto.randomUUID(),
@@ -63,6 +64,7 @@ const els = {
   itemList: document.querySelector("#itemList"),
   resultCount: document.querySelector("#resultCount"),
   filterTabs: document.querySelector("#filterTabs"),
+  viewToggle: document.querySelector("#viewToggle"),
   currentViewLabel: document.querySelector("#currentViewLabel"),
   currentViewTitle: document.querySelector("#currentViewTitle"),
   newItemButton: document.querySelector("#newItemButton"),
@@ -399,6 +401,7 @@ async function pushRemoteState(options = {}) {
         categories: state.categories,
         activeView: state.activeView,
         typeFilter: state.typeFilter,
+        viewMode: state.viewMode,
         items: state.items
       },
       updated_at: new Date().toISOString()
@@ -477,8 +480,11 @@ function render() {
 }
 
 function updateLayoutMode() {
-  const isMobileGrid = window.innerWidth <= 700;
-  document.body.classList.toggle("mobile-grid", isMobileGrid);
+  const isCompact = state.viewMode === "compact";
+  document.body.classList.toggle("mobile-grid", isCompact);
+  document.querySelectorAll("[data-view-mode]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.viewMode === state.viewMode);
+  });
 }
 
 function renderCategories() {
@@ -1280,6 +1286,14 @@ els.filterTabs.addEventListener("click", (event) => {
   state.typeFilter = button.dataset.filter;
   document.querySelectorAll("[data-filter]").forEach((tab) => tab.classList.remove("active"));
   button.classList.add("active");
+  render();
+});
+
+els.viewToggle.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-view-mode]");
+  if (!button) return;
+  selectedIds.clear();
+  state.viewMode = button.dataset.viewMode;
   render();
 });
 

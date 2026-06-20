@@ -463,7 +463,8 @@ button {
 
 .ghost-button,
 .item-actions button,
-.filter-tabs button {
+.filter-tabs button,
+.view-toggle button {
   min-height: 38px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -492,11 +493,18 @@ button {
   padding-bottom: 2px;
 }
 
+.view-toggle {
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+
 .filter-tabs button {
   white-space: nowrap;
 }
 
-.filter-tabs button.active {
+.filter-tabs button.active,
+.view-toggle button.active {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent-strong);
@@ -814,6 +822,10 @@ button {
     justify-content: space-between;
   }
 
+  .view-toggle {
+    align-self: flex-start;
+  }
+
   .import-panel {
     grid-template-columns: 1fr;
   }
@@ -1030,4 +1042,61 @@ body.mobile-grid .image-preview-button {
 
 body.mobile-grid .image-preview {
   aspect-ratio: 1 / 1;
+}
+
+@media (max-width: 860px) {
+  body:not(.mobile-grid) .item-list {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  body:not(.mobile-grid) .item-card {
+    gap: 10px !important;
+    padding: 12px !important;
+  }
+
+  body:not(.mobile-grid) .item-head {
+    grid-template-columns: 1fr auto !important;
+    gap: 8px !important;
+  }
+
+  body:not(.mobile-grid) .select-item {
+    min-height: 34px !important;
+    gap: 7px !important;
+    font-size: 13px !important;
+  }
+
+  body:not(.mobile-grid) .select-item input {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  body:not(.mobile-grid) .select-item span,
+  body:not(.mobile-grid) .item-meta,
+  body:not(.mobile-grid) .memo,
+  body:not(.mobile-grid) .item-url,
+  body:not(.mobile-grid) .tag-row,
+  body:not(.mobile-grid) .item-actions {
+    display: flex !important;
+  }
+
+  body:not(.mobile-grid) .memo,
+  body:not(.mobile-grid) .item-url {
+    display: -webkit-box !important;
+    font-size: 16px !important;
+    line-height: 1.55 !important;
+  }
+
+  body:not(.mobile-grid) .item-title h3 {
+    font-size: 16px !important;
+    line-height: 1.35 !important;
+  }
+
+  body:not(.mobile-grid) .image-preview-button {
+    order: initial !important;
+  }
+
+  body:not(.mobile-grid) .image-preview {
+    aspect-ratio: 4 / 3 !important;
+  }
 }
