@@ -1,4 +1,6 @@
 const STORAGE_KEY = "my-archive-app-state-v1";
+const DB_NAME = "my-archive-app-db";
+const DB_STORE = "state";
 
 const defaultState = {
   categories: ["받은함", "사업", "야구 영상", "공부 자료", "구매할 것"],
@@ -32,6 +34,8 @@ const defaultState = {
 
 let state = loadState();
 let selectedIds = new Set();
+let appDatabase = null;
+let databaseReady = false;
 
 const els = {
   categoryNav: document.querySelector("#categoryNav"),
@@ -66,13 +70,7 @@ function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) return defaultState;
-    const parsed = JSON.parse(saved);
-    return {
-      ...defaultState,
-      ...parsed,
-      categories: parsed.categories?.length ? parsed.categories : defaultState.categories,
-      items: Array.isArray(parsed.items) ? parsed.items : defaultState.items
-    };
+    return normalizeState(JSON.parse(saved));
   } catch {
     return defaultState;
   }
@@ -81,10 +79,80 @@ function loadState() {
 function saveState() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    return true;
   } catch {
     els.importStatus.textContent = "저장 공간이 부족합니다. 오래된 이미지나 자료를 삭제한 뒤 다시 시도해 주세요.";
-    return false;
+  }
+
+  if (databaseReady && appDatabase) {
+    saveStateToDatabase().catch(() => {
+      els.importStatus.textContent = "휴대폰 저장소에 저장하지 못했습니다. 브라우저 저장 공간을 확인해 주세요.";
+    });
+  }
+  return true;
+}
+
+function normalizeState(value) {
+  return {
+    ...defaultState,
+    ...value,
+    categories: value?.categories?.length ? value.categories : defaultState.categories,
+    items: Array.isArray(value?.items) ? value.items : defaultState.items
+  };
+}
+
+function openDatabase() {
+  if (!("indexedDB" in window)) return Promise.resolve(null);
+
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
+
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(DB_STORE)) {
+        db.createObjectStore(DB_STORE);
+      }
+    };
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function databaseRequest(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function loadStateFromDatabase() {
+  if (!appDatabase) return null;
+  const transaction = appDatabase.transaction(DB_STORE, "readonly");
+  const saved = await databaseRequest(transaction.objectStore(DB_STORE).get(STORAGE_KEY));
+  return saved ? normalizeState(saved) : null;
+}
+
+async function saveStateToDatabase() {
+  if (!appDatabase) return;
+  const transaction = appDatabase.transaction(DB_STORE, "readwrite");
+  await databaseRequest(transaction.objectStore(DB_STORE).put(state, STORAGE_KEY));
+}
+
+async function initializeStorage() {
+  try {
+    appDatabase = await openDatabase();
+    if (!appDatabase) return;
+
+    const savedState = await loadStateFromDatabase();
+    if (savedState) {
+      state = savedState;
+    } else {
+      await saveStateToDatabase();
+    }
+    databaseReady = true;
+  } catch {
+    databaseReady = false;
+    els.importStatus.textContent = "휴대폰 장기 저장소를 열지 못했습니다. Chrome/Safari에서 다시 열어 주세요.";
   }
 }
 
@@ -908,6 +976,8 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
   navigator.serviceWorker.register("./sw.js").catch(() => {});
 }
 
-resetForm();
-render();
-parseSharedParams();
+initializeStorage().finally(() => {
+  resetForm();
+  render();
+  parseSharedParams();
+});
