@@ -23,6 +23,10 @@ body {
   font-family: Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
 button,
 input,
 select,
@@ -719,6 +723,53 @@ button {
 
 .mobile-nav {
   display: none;
+}
+
+.image-modal[hidden] {
+  display: none;
+}
+
+.image-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.86);
+  padding: 18px;
+}
+
+.image-modal-panel {
+  display: grid;
+  width: min(1100px, 96vw);
+  max-height: 94vh;
+  gap: 10px;
+}
+
+.image-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.image-modal-actions button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  padding: 0 14px;
+  font-weight: 800;
+}
+
+#modalImage {
+  display: block;
+  max-width: 100%;
+  max-height: calc(94vh - 52px);
+  margin: 0 auto;
+  border-radius: 8px;
+  object-fit: contain;
+  background: #ffffff;
 }
 
 @media (max-width: 860px) {

@@ -44,6 +44,7 @@ let currentUser = null;
 let remoteReady = false;
 let remoteSaveTimer = null;
 let suppressRemoteSave = false;
+let activeImageItemId = "";
 
 const els = {
   categoryNav: document.querySelector("#categoryNav"),
@@ -80,7 +81,11 @@ const els = {
   syncStatus: document.querySelector("#syncStatus"),
   passwordInput: document.querySelector("#passwordInput"),
   signupButton: document.querySelector("#signupButton"),
-  resetPasswordButton: document.querySelector("#resetPasswordButton")
+  resetPasswordButton: document.querySelector("#resetPasswordButton"),
+  imageModal: document.querySelector("#imageModal"),
+  modalImage: document.querySelector("#modalImage"),
+  modalCloseButton: document.querySelector("#modalCloseButton"),
+  modalSaveButton: document.querySelector("#modalSaveButton")
 };
 
 function loadState() {
@@ -1155,6 +1160,28 @@ function saveImage(item) {
   els.importStatus.textContent = "이미지 저장을 시작했습니다. 휴대폰에서 안 되면 이미지를 눌러 새 탭에서 길게 눌러 저장하세요.";
 }
 
+function openImageModal(item) {
+  if (!item?.url) return;
+  activeImageItemId = item.id;
+  els.modalImage.src = item.url;
+  els.modalImage.alt = item.title;
+  els.imageModal.hidden = false;
+  document.body.classList.add("modal-open");
+}
+
+function closeImageModal() {
+  activeImageItemId = "";
+  els.imageModal.hidden = true;
+  els.modalImage.removeAttribute("src");
+  els.modalImage.alt = "";
+  document.body.classList.remove("modal-open");
+}
+
+function saveActiveModalImage() {
+  const item = state.items.find((entry) => entry.id === activeImageItemId);
+  saveImage(item);
+}
+
 els.categoryNav.addEventListener("click", (event) => {
   const deleteButton = event.target.closest("button[data-delete-category]");
   if (deleteButton) {
@@ -1230,11 +1257,23 @@ els.itemList.addEventListener("click", (event) => {
   if (action === "delete") deleteItem(id);
   if (action === "open-image") {
     const item = state.items.find((entry) => entry.id === id);
-    if (item?.url) window.open(item.url, "_blank", "noreferrer");
+    openImageModal(item);
   }
   if (action === "save-image") {
     const item = state.items.find((entry) => entry.id === id);
     saveImage(item);
+  }
+});
+
+els.modalCloseButton.addEventListener("click", closeImageModal);
+els.modalSaveButton.addEventListener("click", saveActiveModalImage);
+els.imageModal.addEventListener("click", (event) => {
+  if (event.target === els.imageModal) closeImageModal();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !els.imageModal.hidden) {
+    closeImageModal();
   }
 });
 
