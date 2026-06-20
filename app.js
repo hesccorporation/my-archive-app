@@ -468,11 +468,17 @@ function textWithoutUrls(text, urls) {
 }
 
 function render() {
+  updateLayoutMode();
   renderCategories();
   renderCategoryOptions();
   renderHeader();
   renderItems();
   saveState();
+}
+
+function updateLayoutMode() {
+  const isMobileGrid = window.innerWidth <= 700;
+  document.body.classList.toggle("mobile-grid", isMobileGrid);
 }
 
 function renderCategories() {
@@ -1316,6 +1322,9 @@ document.addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("paste", handlePaste);
+window.addEventListener("resize", () => {
+  updateLayoutMode();
+});
 
 els.newItemButton.addEventListener("click", () => {
   resetForm();

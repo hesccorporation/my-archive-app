@@ -981,3 +981,53 @@ button {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+body.mobile-grid .item-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+}
+
+body.mobile-grid .item-card {
+  gap: 5px !important;
+  padding: 7px !important;
+  overflow: hidden;
+}
+
+body.mobile-grid .item-head {
+  gap: 4px !important;
+}
+
+body.mobile-grid .select-item {
+  min-height: 22px;
+  gap: 3px;
+  font-size: 10px;
+}
+
+body.mobile-grid .select-item span,
+body.mobile-grid .item-meta,
+body.mobile-grid .memo,
+body.mobile-grid .item-url,
+body.mobile-grid .tag-row,
+body.mobile-grid .item-actions {
+  display: none !important;
+}
+
+body.mobile-grid .select-item input {
+  width: 15px;
+  height: 15px;
+}
+
+body.mobile-grid .item-title h3 {
+  font-size: 12px;
+  line-height: 1.25;
+  -webkit-line-clamp: 2;
+}
+
+body.mobile-grid .image-preview-button {
+  order: -1;
+  border-radius: 6px;
+}
+
+body.mobile-grid .image-preview {
+  aspect-ratio: 1 / 1;
+}
