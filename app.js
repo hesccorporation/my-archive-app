@@ -236,7 +236,9 @@ async function initializeAuth() {
       setSyncStatus(`${currentUser.email} 동기화 준비됨`);
       render();
     } else {
+      selectedIds.clear();
       setSyncStatus("로그아웃됨");
+      render();
     }
   });
 }
@@ -333,8 +335,10 @@ async function logout() {
   await supabaseClient.auth.signOut();
   currentUser = null;
   remoteReady = false;
+  selectedIds.clear();
   setSyncButtons();
   setSyncStatus("로그아웃됨");
+  render();
 }
 
 function scheduleRemoteSave() {
@@ -475,7 +479,7 @@ function renderCategories() {
   const systemViews = [
     { name: "받은함", count: countByCategory("받은함") },
     { name: "즐겨찾기", count: state.items.filter((item) => item.favorite).length },
-    { name: "전체", count: state.items.length }
+    { name: "전체", count: currentUser ? state.items.length : 0 }
   ];
 
   const customViews = state.categories
@@ -537,10 +541,14 @@ function renderItems() {
     : "모두 선택";
 
   if (!items.length) {
+    const emptyTitle = currentUser ? "아직 자료가 없습니다" : "로그인이 필요합니다";
+    const emptyText = currentUser
+      ? "새 자료를 저장하면 여기에서 바로 찾을 수 있습니다."
+      : "로그인하면 저장한 자료를 볼 수 있습니다.";
     els.itemList.innerHTML = `
       <div class="empty-state">
-        <h3>아직 자료가 없습니다</h3>
-        <p>새 자료를 저장하면 여기에서 바로 찾을 수 있습니다.</p>
+        <h3>${emptyTitle}</h3>
+        <p>${emptyText}</p>
       </div>
     `;
     return;
@@ -550,6 +558,8 @@ function renderItems() {
 }
 
 function getVisibleItems() {
+  if (!currentUser) return [];
+
   const query = els.searchInput.value.trim().toLowerCase();
   return state.items
     .filter((item) => matchesView(item))
@@ -627,6 +637,7 @@ function matchesSearch(item, query) {
 }
 
 function countByCategory(category) {
+  if (!currentUser) return 0;
   return state.items.filter((item) => item.category === category).length;
 }
 
