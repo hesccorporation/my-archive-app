@@ -1147,17 +1147,40 @@ function filenameFromTitle(title, extension) {
   return `${safeTitle}.${extension}`;
 }
 
-function saveImage(item) {
+async function dataUrlToBlob(dataUrl) {
+  const response = await fetch(dataUrl);
+  return response.blob();
+}
+
+async function saveImage(item) {
   if (!item?.url) return;
   const extension = imageExtension(item.url);
   const filename = filenameFromTitle(item.title, extension);
+  const blob = await dataUrlToBlob(item.url);
+  const file = new File([blob], filename, { type: blob.type || `image/${extension}` });
+
+  if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+    try {
+      await navigator.share({
+        files: [file],
+        title: item.title
+      });
+      els.importStatus.textContent = "공유/저장 화면을 열었습니다.";
+      return;
+    } catch {
+      // 사용자가 공유창을 닫으면 아래 다운로드 방식으로 이어집니다.
+    }
+  }
+
+  const objectUrl = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  link.href = item.url;
+  link.href = objectUrl;
   link.download = filename;
   document.body.appendChild(link);
   link.click();
   link.remove();
-  els.importStatus.textContent = "이미지 저장을 시작했습니다. 휴대폰에서 안 되면 이미지를 눌러 새 탭에서 길게 눌러 저장하세요.";
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  els.importStatus.textContent = "이미지 다운로드를 시작했습니다. 휴대폰에서 공유창이 뜨면 사진 저장을 선택하세요.";
 }
 
 function openImageModal(item) {
@@ -1179,7 +1202,9 @@ function closeImageModal() {
 
 function saveActiveModalImage() {
   const item = state.items.find((entry) => entry.id === activeImageItemId);
-  saveImage(item);
+  saveImage(item).catch(() => {
+    els.importStatus.textContent = "이미지 저장에 실패했습니다. 이미지를 길게 눌러 저장해 보세요.";
+  });
 }
 
 els.categoryNav.addEventListener("click", (event) => {
@@ -1261,7 +1286,9 @@ els.itemList.addEventListener("click", (event) => {
   }
   if (action === "save-image") {
     const item = state.items.find((entry) => entry.id === id);
-    saveImage(item);
+    saveImage(item).catch(() => {
+      els.importStatus.textContent = "이미지 저장에 실패했습니다. 이미지를 열고 길게 눌러 저장해 보세요.";
+    });
   }
 });
 
