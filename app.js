@@ -137,15 +137,14 @@ function normalizeState(value) {
   const categories = [...new Set(
     rawCategories
       .map((category) => category === "받은함" ? "미분류" : category)
-      .filter((category) => category !== "야구 영상")
   )];
   if (!categories.includes("미분류")) categories.unshift("미분류");
 
   const items = (Array.isArray(value?.items) ? value.items : defaultState.items).map((item) => ({
     ...item,
-    category: item.category === "받은함" || item.category === "야구 영상" ? "미분류" : item.category
+    category: item.category === "받은함" ? "미분류" : item.category
   }));
-  const activeView = value?.activeView === "받은함" || value?.activeView === "야구 영상"
+  const activeView = value?.activeView === "받은함"
     ? "미분류"
     : value?.activeView;
 
@@ -710,6 +709,7 @@ function categoryForText(text) {
   const value = text.toLowerCase();
   const rules = [
     { category: "사업", words: ["사업", "마케팅", "거래", "매출", "창업", "고객", "세금", "계약"] },
+    { category: "야구 영상", words: ["야구", "타격", "투수", "오타니", "mlb", "kbo", "홈런", "피칭"] },
     { category: "공부 자료", words: ["공부", "강의", "수업", "논문", "자료", "영어", "개념", "튜토리얼"] },
     { category: "구매할 것", words: ["구매", "쇼핑", "살 것", "사야", "가격", "쿠팡", "네이버쇼핑"] }
   ];
