@@ -6,18 +6,18 @@ const SUPABASE_URL = "https://askukytiskyakvbxtpan.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFza3VreXRpc2t5YWt2Ynh0cGFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5MDE5NjcsImV4cCI6MjA5NzQ3Nzk2N30.3Sygw5Op7g2sAZdXlNb-HWKbHfVLCormsBqhhxmOcpQ";
 
 const defaultState = {
-  categories: ["받은함", "사업", "야구 영상", "공부 자료", "구매할 것"],
-  activeView: "받은함",
+  categories: ["미분류", "사업", "공부 자료", "구매할 것"],
+  activeView: "미분류",
   typeFilter: "all",
   viewMode: "large",
   items: [
     {
       id: crypto.randomUUID(),
-      title: "야구 타격폼 분석 영상",
+      title: "참고할 유튜브 링크",
       type: "link",
       url: "https://www.youtube.com/",
-      category: "야구 영상",
-      tags: ["타격", "참고자료"],
+      category: "미분류",
+      tags: ["참고자료"],
       memo: "유튜브에서 공유해서 저장할 자료의 예시입니다.",
       favorite: true,
       createdAt: new Date().toISOString()
@@ -29,7 +29,7 @@ const defaultState = {
       url: "",
       category: "사업",
       tags: ["아이디어", "검토"],
-      memo: "떠오른 생각을 일단 받은함이나 사업 카테고리에 빠르게 넣어두면 됩니다.",
+      memo: "떠오른 생각을 일단 미분류나 사업 카테고리에 빠르게 넣어두면 됩니다.",
       favorite: false,
       createdAt: new Date(Date.now() - 86400000).toISOString()
     }
@@ -133,11 +133,28 @@ function saveState() {
 }
 
 function normalizeState(value) {
+  const rawCategories = value?.categories?.length ? value.categories : defaultState.categories;
+  const categories = [...new Set(
+    rawCategories
+      .map((category) => category === "받은함" ? "미분류" : category)
+      .filter((category) => category !== "야구 영상")
+  )];
+  if (!categories.includes("미분류")) categories.unshift("미분류");
+
+  const items = (Array.isArray(value?.items) ? value.items : defaultState.items).map((item) => ({
+    ...item,
+    category: item.category === "받은함" || item.category === "야구 영상" ? "미분류" : item.category
+  }));
+  const activeView = value?.activeView === "받은함" || value?.activeView === "야구 영상"
+    ? "미분류"
+    : value?.activeView;
+
   return {
     ...defaultState,
     ...value,
-    categories: value?.categories?.length ? value.categories : defaultState.categories,
-    items: Array.isArray(value?.items) ? value.items : defaultState.items
+    activeView: categories.includes(activeView) || ["즐겨찾기", "전체"].includes(activeView) ? activeView : "미분류",
+    categories,
+    items
   };
 }
 
@@ -443,7 +460,7 @@ function parseSharedParams() {
   els.typeInput.value = possibleUrl ? "link" : "note";
   els.urlInput.value = possibleUrl;
   els.memoInput.value = text.replace(possibleUrl, "").trim();
-  els.categoryInput.value = "받은함";
+  els.categoryInput.value = "미분류";
   els.composer.classList.remove("collapsed");
 }
 
@@ -505,19 +522,19 @@ function updateLayoutMode() {
 
 function renderCategories() {
   const systemViews = [
-    { name: "받은함", count: countByCategory("받은함") },
+    { name: "미분류", count: countByCategory("미분류") },
     { name: "즐겨찾기", count: state.items.filter((item) => item.favorite).length },
     { name: "전체", count: currentUser ? state.items.length : 0 }
   ];
 
   const customViews = state.categories
-    .filter((category) => category !== "받은함")
+    .filter((category) => category !== "미분류")
     .map((category) => ({ name: category, count: countByCategory(category) }));
 
   els.categoryNav.innerHTML = [...systemViews, ...customViews]
     .map((view) => {
       const active = view.name === state.activeView ? "active" : "";
-      const canDelete = state.categories.includes(view.name) && view.name !== "받은함";
+      const canDelete = state.categories.includes(view.name) && view.name !== "미분류";
       const deleteButton = canDelete
         ? `<button class="category-delete" type="button" data-delete-category="${escapeHtml(view.name)}" aria-label="${escapeHtml(view.name)} 카테고리 삭제">삭제</button>`
         : "";
@@ -549,7 +566,7 @@ function renderCategoryOptions() {
 
 function renderHeader() {
   const titles = {
-    "받은함": "정리할 자료",
+    "미분류": "정리할 자료",
     "즐겨찾기": "중요한 자료",
     "전체": "모든 자료"
   };
@@ -693,7 +710,6 @@ function categoryForText(text) {
   const value = text.toLowerCase();
   const rules = [
     { category: "사업", words: ["사업", "마케팅", "거래", "매출", "창업", "고객", "세금", "계약"] },
-    { category: "야구 영상", words: ["야구", "타격", "투수", "오타니", "mlb", "kbo", "홈런", "피칭"] },
     { category: "공부 자료", words: ["공부", "강의", "수업", "논문", "자료", "영어", "개념", "튜토리얼"] },
     { category: "구매할 것", words: ["구매", "쇼핑", "살 것", "사야", "가격", "쿠팡", "네이버쇼핑"] }
   ];
@@ -701,7 +717,7 @@ function categoryForText(text) {
   const matched = rules.find((rule) =>
     state.categories.includes(rule.category) && rule.words.some((word) => value.includes(word))
   );
-  return matched?.category || "받은함";
+  return matched?.category || "미분류";
 }
 
 function titleFromMessage(message, url) {
@@ -924,7 +940,7 @@ function importKakaoFile(file) {
     }
 
     state.items = [...importedItems, ...state.items];
-    state.activeView = "받은함";
+    state.activeView = "미분류";
     state.typeFilter = "all";
     document.querySelectorAll("[data-filter]").forEach((tab) => tab.classList.remove("active"));
     document.querySelector('[data-filter="all"]')?.classList.add("active");
@@ -948,7 +964,7 @@ function formatDate(value) {
 }
 
 function activeSaveCategory() {
-  return state.categories.includes(state.activeView) ? state.activeView : "받은함";
+  return state.categories.includes(state.activeView) ? state.activeView : "미분류";
 }
 
 function resetForm() {
@@ -1194,22 +1210,22 @@ function addCategory(event) {
 }
 
 function deleteCategory(category) {
-  if (category === "받은함" || !state.categories.includes(category)) return;
+  if (category === "미분류" || !state.categories.includes(category)) return;
 
   const itemCount = countByCategory(category);
   const message = itemCount
-    ? `"${category}" 카테고리를 삭제할까요?\n안에 있던 자료 ${itemCount}개는 받은함으로 옮겨집니다.`
+    ? `"${category}" 카테고리를 삭제할까요?\n안에 있던 자료 ${itemCount}개는 미분류로 옮겨집니다.`
     : `"${category}" 카테고리를 삭제할까요?`;
   const ok = confirm(message);
   if (!ok) return;
 
   state.categories = state.categories.filter((entry) => entry !== category);
   state.items = state.items.map((item) =>
-    item.category === category ? { ...item, category: "받은함" } : item
+    item.category === category ? { ...item, category: "미분류" } : item
   );
 
   if (state.activeView === category) {
-    state.activeView = "받은함";
+    state.activeView = "미분류";
   }
 
   resetForm();
@@ -1549,7 +1565,7 @@ document.querySelectorAll("[data-mobile-view]").forEach((button) => {
       ? "즐겨찾기"
       : button.dataset.mobileView === "all"
         ? "전체"
-        : "받은함";
+        : "미분류";
     render();
     window.scrollTo({ top: 0, behavior: "smooth" });
   });

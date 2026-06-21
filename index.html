@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#111827" />
     <title>내서랍</title>
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="stylesheet" href="./styles.css?v=24" />
+    <link rel="stylesheet" href="./styles.css?v=25" />
   </head>
   <body>
     <div class="app-shell">
@@ -50,7 +50,7 @@
         <form class="category-form" id="categoryForm">
           <label for="newCategory">카테고리 추가</label>
           <div class="inline-input">
-            <input id="newCategory" name="newCategory" type="text" placeholder="예: 야구 영상" autocomplete="off" />
+            <input id="newCategory" name="newCategory" type="text" placeholder="예: 사진, 사업, 사고싶은것" autocomplete="off" />
             <button type="submit">추가</button>
           </div>
         </form>
@@ -59,7 +59,7 @@
       <main class="main">
         <header class="topbar">
           <div>
-            <p class="eyebrow" id="currentViewLabel">받은함</p>
+            <p class="eyebrow" id="currentViewLabel">미분류</p>
             <h2 id="currentViewTitle">정리할 자료</h2>
           </div>
           <div class="search-wrap">
@@ -165,7 +165,7 @@
     </div>
 
     <nav class="mobile-nav" style="display: none !important;" aria-label="빠른 이동">
-      <button type="button" data-mobile-view="inbox">받은함</button>
+      <button type="button" data-mobile-view="inbox">미분류</button>
       <button type="button" data-mobile-view="favorites">즐겨찾기</button>
       <button type="button" data-mobile-view="all">전체</button>
       <button type="button" id="mobileAddButton">추가</button>
@@ -195,6 +195,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./app.js?v=24"></script>
+    <script src="./app.js?v=25"></script>
   </body>
 </html>
