@@ -714,6 +714,20 @@ button {
   font-size: 13px;
 }
 
+.card-compact-meta,
+.card-summary {
+  display: none;
+  margin: 5px 0 0;
+  overflow: hidden;
+  color: var(--muted);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.card-summary {
+  color: #344054;
+}
+
 .badge {
   display: inline-flex;
   min-height: 24px;
@@ -1196,6 +1210,22 @@ body.mobile-grid .select-item input {
 body.mobile-grid .item-title h3 {
   font-size: 12px;
   line-height: 1.25;
+  -webkit-line-clamp: 2;
+}
+
+body.mobile-grid .card-compact-meta,
+body.mobile-grid .card-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+}
+
+body.mobile-grid .card-compact-meta {
+  font-size: 10px;
+  -webkit-line-clamp: 1;
+}
+
+body.mobile-grid .card-summary {
+  font-size: 11px;
   -webkit-line-clamp: 2;
 }
 

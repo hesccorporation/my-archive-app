@@ -623,6 +623,9 @@ function getVisibleItems() {
 function renderItemCard(item) {
   const checked = selectedIds.has(item.id) ? "checked" : "";
   const tags = item.tags.map((tag) => `<span class="tag">#${escapeHtml(tag)}</span>`).join("");
+  const compactTags = item.tags?.length ? ` · ${item.tags.map((tag) => `#${tag}`).join(" ")}` : "";
+  const compactMeta = `${typeLabel(item.type)} · ${item.category} · ${formatDate(item.createdAt)}`;
+  const summary = cardSummaryText(item);
   const imagePreview = item.type === "image" && item.url
     ? `<button class="image-preview-button" type="button" data-action="open-image" data-id="${item.id}"><img class="image-preview" src="${escapeAttribute(item.url)}" alt="${escapeAttribute(item.title)}" loading="lazy" /></button>`
     : "";
@@ -642,6 +645,8 @@ function renderItemCard(item) {
         </label>
         <div class="item-title">
           <h3>${escapeHtml(item.title)}</h3>
+          <p class="card-compact-meta">${escapeHtml(compactMeta)}</p>
+          ${summary ? `<p class="card-summary">${escapeHtml(`${summary}${compactTags}`)}</p>` : ""}
           <div class="item-meta">
             <span class="badge">${typeLabel(item.type)}</span>
             <span class="badge">${escapeHtml(item.category)}</span>
@@ -661,6 +666,23 @@ function renderItemCard(item) {
       ${tags ? `<div class="tag-row">${tags}</div>` : ""}
     </article>
   `;
+}
+
+function cardSummaryText(item) {
+  const values = [
+    item.content,
+    item.memo,
+    item.type !== "image" ? item.url : "",
+    item.tags?.length ? item.tags.map((tag) => `#${tag}`).join(" ") : ""
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+
+  const uniqueValues = values.filter((value, index) =>
+    values.findIndex((entry) => entry.toLowerCase() === value.toLowerCase()) === index
+  );
+  const title = String(item.title || "").trim().toLowerCase();
+  return uniqueValues.find((value) => value.toLowerCase() !== title) || uniqueValues[0] || "";
 }
 
 function matchesView(item) {
