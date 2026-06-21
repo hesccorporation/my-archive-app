@@ -79,8 +79,11 @@ const els = {
   kakaoImportInput: document.querySelector("#kakaoImportInput"),
   imageImportInput: document.querySelector("#imageImportInput"),
   quickImageInput: document.querySelector("#quickImageInput"),
+  thumbnailInput: document.querySelector("#thumbnailInput"),
+  thumbnailDataInput: document.querySelector("#thumbnailDataInput"),
   pendingImageStatus: document.querySelector("#pendingImageStatus"),
   pendingImagePreview: document.querySelector("#pendingImagePreview"),
+  pendingThumbnailPreview: document.querySelector("#pendingThumbnailPreview"),
   importStatus: document.querySelector("#importStatus"),
   bulkDeleteButton: document.querySelector("#bulkDeleteButton"),
   selectAllButton: document.querySelector("#selectAllButton"),
@@ -750,6 +753,9 @@ async function fetchLinkPreview(url) {
   const directPreview = immediateLinkPreview(url);
   if (directPreview) return directPreview;
 
+  const serverPreview = await fetchServerLinkPreview(url);
+  if (serverPreview) return serverPreview;
+
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), 6500);
   try {
@@ -774,12 +780,34 @@ async function fetchLinkPreview(url) {
   }
 }
 
+async function fetchServerLinkPreview(url) {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/link-preview?url=${encodeURIComponent(url)}`, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+      }
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (!data?.image) return null;
+    return {
+      image: data.image,
+      title: data.title || "",
+      description: data.description || "",
+      site: data.site || hostnameFromUrl(url)
+    };
+  } catch {
+    return null;
+  }
+}
+
 function shouldHydrateLinkPreview(item) {
   return currentUser
     && item?.type === "link"
     && item.url
     && !item.linkPreview?.image
-    && !item.previewFailed
+    && item.previewFailed !== "v29"
     && !linkPreviewQueue.has(item.id);
 }
 
@@ -800,7 +828,7 @@ async function hydrateLinkPreview(id, url) {
 
   state.items = state.items.map((entry) =>
     entry.id === id
-      ? { ...entry, linkPreview: preview || entry.linkPreview || null, previewFailed: !preview }
+      ? { ...entry, linkPreview: preview || entry.linkPreview || null, previewFailed: preview ? false : "v29" }
       : entry
   );
   render();
@@ -1117,6 +1145,7 @@ function resetForm() {
   els.typeInput.value = "link";
   els.urlInput.value = "";
   showPendingImagePreview("");
+  showPendingThumbnailPreview("");
   els.categoryInput.value = activeSaveCategory();
   els.quickCategoryInput.value = activeSaveCategory();
   els.composer.classList.remove("advanced-open");
@@ -1182,6 +1211,21 @@ function showPendingImagePreview(dataUrl) {
   `;
 }
 
+function showPendingThumbnailPreview(dataUrl) {
+  els.thumbnailDataInput.value = dataUrl || "";
+  if (!dataUrl) {
+    els.pendingThumbnailPreview.hidden = true;
+    els.pendingThumbnailPreview.innerHTML = "";
+    return;
+  }
+
+  els.pendingThumbnailPreview.hidden = false;
+  els.pendingThumbnailPreview.innerHTML = `
+    <img src="${escapeAttribute(dataUrl)}" alt="링크 썸네일 미리보기" />
+    <span>이 이미지를 링크 썸네일로 저장합니다.</span>
+  `;
+}
+
 async function prepareImageForForm(file) {
   const dataUrl = await imageFileToStoredDataUrl(file);
   els.urlInput.value = dataUrl;
@@ -1195,6 +1239,16 @@ async function prepareImageForForm(file) {
   if (!els.tagsInput.value.trim()) els.tagsInput.value = "이미지";
   els.pendingImageStatus.textContent = "이미지가 첨부됐습니다. 제목, 카테고리, 태그, 메모를 정한 뒤 저장하세요.";
   els.titleInput.focus();
+}
+
+async function prepareThumbnailForForm(file) {
+  const dataUrl = await imageFileToStoredDataUrl(file);
+  showPendingThumbnailPreview(dataUrl);
+  els.typeInput.value = "link";
+  els.composer.classList.remove("collapsed");
+  els.composer.classList.add("advanced-open");
+  els.advancedToggleButton.textContent = "\uac04\ub2e8\ud788";
+  els.pendingImageStatus.textContent = "링크 썸네일이 선택됐습니다. 링크와 제목을 확인한 뒤 저장하세요.";
 }
 
 async function addPastedImage(file) {
@@ -1241,6 +1295,10 @@ function saveItem(event) {
   const memo = els.memoInput.value.trim() || textWithoutUrls(quickText, url ? [url] : []);
   const title = els.titleInput.value.trim() || (type === "image" ? defaultImageTitle() : titleFromQuickText(quickText, url));
   const oldItemForPreview = editingId ? state.items.find((entry) => entry.id === editingId) : null;
+  const manualThumbnail = els.thumbnailDataInput.value.trim();
+  const linkPreview = manualThumbnail
+    ? { image: manualThumbnail, title, description: memo, site: hostnameFromUrl(url), manual: true }
+    : oldItemForPreview?.url === url ? oldItemForPreview.linkPreview : null;
   const item = {
     id: editingId || crypto.randomUUID(),
     title,
@@ -1250,7 +1308,8 @@ function saveItem(event) {
     tags: els.tagsInput.value.split(",").map((tag) => tag.trim()).filter(Boolean),
     content: quickText || (type === "image" ? "이미지 첨부" : ""),
     memo,
-    linkPreview: oldItemForPreview?.url === url ? oldItemForPreview.linkPreview : null,
+    linkPreview,
+    previewFailed: false,
     favorite: false,
     createdAt: new Date().toISOString()
   };
@@ -1281,6 +1340,7 @@ function editItem(id) {
   els.typeInput.value = item.type;
   els.urlInput.value = item.url;
   showPendingImagePreview(item.type === "image" ? item.url : "");
+  showPendingThumbnailPreview(item.type === "link" ? item.linkPreview?.image || "" : "");
   els.categoryInput.value = item.category;
   els.quickCategoryInput.value = item.category;
   els.tagsInput.value = item.tags.join(", ");
@@ -1566,6 +1626,16 @@ els.quickImageInput.addEventListener("change", (event) => {
   if (file) {
     prepareImageForForm(file).catch(() => {
       els.pendingImageStatus.textContent = "이미지를 불러오는 중 문제가 생겼습니다.";
+    });
+  }
+  event.target.value = "";
+});
+
+els.thumbnailInput.addEventListener("change", (event) => {
+  const file = event.target.files?.[0];
+  if (file) {
+    prepareThumbnailForForm(file).catch(() => {
+      els.pendingImageStatus.textContent = "링크 썸네일을 불러오는 중 문제가 생겼습니다.";
     });
   }
   event.target.value = "";

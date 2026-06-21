@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#111827" />
     <title>내서랍</title>
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="stylesheet" href="./styles.css?v=28" />
+    <link rel="stylesheet" href="./styles.css?v=29" />
   </head>
   <body>
     <div class="app-shell">
@@ -84,6 +84,10 @@
               <div class="quick-image-tools">
                 <label class="file-button secondary" for="quickImageInput">이미지 선택</label>
                 <input id="quickImageInput" type="file" accept="image/*" />
+                <label class="file-button" for="thumbnailInput">링크 썸네일 선택</label>
+                <input id="thumbnailInput" type="file" accept="image/*" />
+                <input id="thumbnailDataInput" type="hidden" />
+                <div class="pending-thumbnail-preview" id="pendingThumbnailPreview" hidden></div>
                 <p id="pendingImageStatus">이미지는 선택하거나 Ctrl+V로 붙인 뒤 제목/메모를 적고 저장할 수 있습니다.</p>
               </div>
             </div>
@@ -195,6 +199,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./app.js?v=28"></script>
+    <script src="./app.js?v=29"></script>
   </body>
 </html>

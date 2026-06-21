@@ -398,6 +398,10 @@ button {
   display: none;
 }
 
+.pending-thumbnail-preview[hidden] {
+  display: none;
+}
+
 .pending-image-preview {
   display: grid;
   gap: 8px;
@@ -419,6 +423,31 @@ button {
 .pending-image-preview span {
   color: var(--muted);
   font-size: 12px;
+}
+
+.pending-thumbnail-preview {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 8px;
+}
+
+.pending-thumbnail-preview img {
+  width: 72px;
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #fff;
+}
+
+.pending-thumbnail-preview span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .form-grid {
@@ -526,7 +555,8 @@ button {
 
 #kakaoImportInput,
 #imageImportInput,
-#quickImageInput {
+#quickImageInput,
+#thumbnailInput {
   position: absolute;
   width: 1px;
   height: 1px;
