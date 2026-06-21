@@ -317,6 +317,7 @@ button {
 }
 
 .search-wrap input,
+.mobile-search-wrap input,
 .composer input,
 .composer select,
 .composer textarea {
@@ -328,6 +329,16 @@ button {
 }
 
 .search-wrap input {
+  min-height: 46px;
+  padding: 0 14px;
+}
+
+.mobile-search-wrap {
+  display: none;
+  margin-bottom: 18px;
+}
+
+.mobile-search-wrap input {
   min-height: 46px;
   padding: 0 14px;
 }
@@ -911,6 +922,14 @@ button {
 
   .topbar {
     grid-template-columns: 1fr;
+  }
+
+  .topbar .search-wrap {
+    display: none;
+  }
+
+  .mobile-search-wrap {
+    display: block;
   }
 
   .form-grid {

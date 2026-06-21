@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#111827" />
     <title>내서랍</title>
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="stylesheet" href="./styles.css?v=19" />
+    <link rel="stylesheet" href="./styles.css?v=20" />
   </head>
   <body>
     <div class="app-shell">
@@ -115,6 +115,11 @@
           </form>
         </section>
 
+        <div class="mobile-search-wrap">
+          <label class="sr-only" for="mobileSearchInput">검색</label>
+          <input id="mobileSearchInput" type="search" placeholder="제목, 메모, 태그, 링크 검색" />
+        </div>
+
         <section class="import-panel" hidden aria-label="카카오톡 대화 가져오기">
           <div>
             <p class="eyebrow">카톡 가져오기</p>
@@ -183,6 +188,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./app.js?v=19"></script>
+    <script src="./app.js?v=20"></script>
   </body>
 </html>

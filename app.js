@@ -65,6 +65,7 @@ const els = {
   cancelEditButton: document.querySelector("#cancelEditButton"),
   advancedToggleButton: document.querySelector("#advancedToggleButton"),
   searchInput: document.querySelector("#searchInput"),
+  mobileSearchInput: document.querySelector("#mobileSearchInput"),
   itemList: document.querySelector("#itemList"),
   resultCount: document.querySelector("#resultCount"),
   filterTabs: document.querySelector("#filterTabs"),
@@ -1388,7 +1389,18 @@ els.advancedToggleButton.addEventListener("click", () => {
     : "\uc790\uc138\ud788";
 });
 
-els.searchInput.addEventListener("input", renderItems);
+function syncSearchInput(source, target) {
+  target.value = source.value;
+  renderItems();
+}
+
+els.searchInput.addEventListener("input", () => {
+  syncSearchInput(els.searchInput, els.mobileSearchInput);
+});
+
+els.mobileSearchInput.addEventListener("input", () => {
+  syncSearchInput(els.mobileSearchInput, els.searchInput);
+});
 
 els.filterTabs.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-filter]");
