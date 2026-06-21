@@ -779,6 +779,68 @@ button {
   background: #f8fafc;
 }
 
+.link-preview-card {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.link-preview-card:hover {
+  border-color: rgba(15, 118, 110, 0.45);
+}
+
+.link-preview-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 96px;
+  object-fit: cover;
+  background: #e5e7eb;
+}
+
+.link-preview-body {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.link-preview-body strong,
+.link-preview-body span {
+  display: -webkit-box;
+  overflow: hidden;
+  word-break: break-word;
+  -webkit-box-orient: vertical;
+}
+
+.link-preview-body strong {
+  font-size: 14px;
+  line-height: 1.35;
+  -webkit-line-clamp: 2;
+}
+
+.link-preview-body span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  -webkit-line-clamp: 2;
+}
+
+.link-preview-body small {
+  overflow: hidden;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tag-row {
   display: flex;
   flex-wrap: wrap;
@@ -1238,6 +1300,22 @@ body.mobile-grid .image-preview {
   aspect-ratio: 1 / 1;
 }
 
+body.mobile-grid .link-preview-card {
+  order: -1;
+  display: block;
+  border-radius: 6px;
+}
+
+body.mobile-grid .link-preview-image {
+  aspect-ratio: 1 / 1;
+  min-height: 0;
+  height: auto;
+}
+
+body.mobile-grid .link-preview-body {
+  display: none;
+}
+
 @media (max-width: 860px) {
   body:not(.mobile-grid) .item-list {
     grid-template-columns: 1fr !important;
@@ -1284,6 +1362,10 @@ body.mobile-grid .image-preview {
   body:not(.mobile-grid) .item-title h3 {
     font-size: 16px !important;
     line-height: 1.35 !important;
+  }
+
+  body:not(.mobile-grid) .link-preview-card {
+    grid-template-columns: 120px minmax(0, 1fr) !important;
   }
 
   body:not(.mobile-grid) .image-preview-button {

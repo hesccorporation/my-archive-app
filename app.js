@@ -47,6 +47,7 @@ let remoteSaveTimer = null;
 let suppressRemoteSave = false;
 let activeImageItemId = "";
 let activeDetailItemId = "";
+const linkPreviewQueue = new Set();
 
 const els = {
   categoryNav: document.querySelector("#categoryNav"),
@@ -607,6 +608,7 @@ function renderItems() {
   }
 
   els.itemList.innerHTML = items.map(renderItemCard).join("");
+  window.setTimeout(() => hydrateVisibleLinkPreviews(items), 0);
 }
 
 function getVisibleItems() {
@@ -626,6 +628,7 @@ function renderItemCard(item) {
   const compactTags = item.tags?.length ? ` · ${item.tags.map((tag) => `#${tag}`).join(" ")}` : "";
   const compactMeta = `${typeLabel(item.type)} · ${item.category} · ${formatDate(item.createdAt)}`;
   const summary = cardSummaryText(item);
+  const compactSummary = summary ? `${summary}${compactTags}` : compactTags.replace(/^ · /, "");
   const imagePreview = item.type === "image" && item.url
     ? `<button class="image-preview-button" type="button" data-action="open-image" data-id="${item.id}"><img class="image-preview" src="${escapeAttribute(item.url)}" alt="${escapeAttribute(item.title)}" loading="lazy" /></button>`
     : "";
@@ -635,6 +638,7 @@ function renderItemCard(item) {
   const imageSaveButton = item.type === "image" && item.url
     ? `<button type="button" data-action="save-image" data-id="${item.id}">저장</button>`
     : "";
+  const linkPreview = renderLinkPreview(item);
 
   return `
     <article class="item-card ${checked ? "selected" : ""}" data-open-detail="${item.id}" tabindex="0">
@@ -646,7 +650,7 @@ function renderItemCard(item) {
         <div class="item-title">
           <h3>${escapeHtml(item.title)}</h3>
           <p class="card-compact-meta">${escapeHtml(compactMeta)}</p>
-          ${summary ? `<p class="card-summary">${escapeHtml(`${summary}${compactTags}`)}</p>` : ""}
+          ${compactSummary ? `<p class="card-summary">${escapeHtml(compactSummary)}</p>` : ""}
           <div class="item-meta">
             <span class="badge">${typeLabel(item.type)}</span>
             <span class="badge">${escapeHtml(item.category)}</span>
@@ -661,6 +665,7 @@ function renderItemCard(item) {
         </div>
       </div>
       ${imagePreview}
+      ${linkPreview}
       ${url}
       ${item.memo ? `<p class="memo">${escapeHtml(item.memo)}</p>` : ""}
       ${tags ? `<div class="tag-row">${tags}</div>` : ""}
@@ -668,12 +673,29 @@ function renderItemCard(item) {
   `;
 }
 
+function renderLinkPreview(item) {
+  if (item.type !== "link" || !item.url || !item.linkPreview?.image) return "";
+  const title = item.linkPreview.title || item.title || item.url;
+  const description = item.linkPreview.description || item.memo || "";
+  const host = item.linkPreview.site || hostnameFromUrl(item.url);
+
+  return `
+    <a class="link-preview-card" href="${escapeAttribute(item.url)}" target="_blank" rel="noreferrer" data-link-preview>
+      <img class="link-preview-image" src="${escapeAttribute(item.linkPreview.image)}" alt="${escapeAttribute(title)}" loading="lazy" />
+      <div class="link-preview-body">
+        <strong>${escapeHtml(title)}</strong>
+        ${description ? `<span>${escapeHtml(description)}</span>` : ""}
+        ${host ? `<small>${escapeHtml(host)}</small>` : ""}
+      </div>
+    </a>
+  `;
+}
+
 function cardSummaryText(item) {
   const values = [
     item.content,
     item.memo,
-    item.type !== "image" ? item.url : "",
-    item.tags?.length ? item.tags.map((tag) => `#${tag}`).join(" ") : ""
+    item.type !== "image" ? item.url : ""
   ]
     .map((value) => String(value || "").trim())
     .filter(Boolean);
@@ -683,6 +705,105 @@ function cardSummaryText(item) {
   );
   const title = String(item.title || "").trim().toLowerCase();
   return uniqueValues.find((value) => value.toLowerCase() !== title) || uniqueValues[0] || "";
+}
+
+function hostnameFromUrl(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+function youtubeVideoId(url) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, "").toLowerCase();
+    if (host === "youtu.be") return parsed.pathname.split("/").filter(Boolean)[0] || "";
+    if (host.endsWith("youtube.com")) {
+      if (parsed.searchParams.get("v")) return parsed.searchParams.get("v");
+      const shorts = parsed.pathname.match(/\/shorts\/([^/?#]+)/);
+      if (shorts) return shorts[1];
+      const embed = parsed.pathname.match(/\/embed\/([^/?#]+)/);
+      if (embed) return embed[1];
+    }
+  } catch {
+    return "";
+  }
+  return "";
+}
+
+function immediateLinkPreview(url) {
+  const videoId = youtubeVideoId(url);
+  if (videoId) {
+    return {
+      image: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+      title: "",
+      description: "",
+      site: "youtube.com"
+    };
+  }
+  return null;
+}
+
+async function fetchLinkPreview(url) {
+  const directPreview = immediateLinkPreview(url);
+  if (directPreview) return directPreview;
+
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 6500);
+  try {
+    const response = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`, {
+      signal: controller.signal
+    });
+    if (!response.ok) return null;
+    const result = await response.json();
+    const data = result?.data || {};
+    const image = data.image?.url || data.logo?.url || "";
+    if (!image) return null;
+    return {
+      image,
+      title: data.title || "",
+      description: data.description || "",
+      site: data.publisher || hostnameFromUrl(data.url || url)
+    };
+  } catch {
+    return null;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+function shouldHydrateLinkPreview(item) {
+  return currentUser
+    && item?.type === "link"
+    && item.url
+    && !item.linkPreview?.image
+    && !item.previewFailed
+    && !linkPreviewQueue.has(item.id);
+}
+
+function hydrateVisibleLinkPreviews(items) {
+  items
+    .filter(shouldHydrateLinkPreview)
+    .slice(0, 6)
+    .forEach((item) => hydrateLinkPreview(item.id, item.url));
+}
+
+async function hydrateLinkPreview(id, url) {
+  linkPreviewQueue.add(id);
+  const preview = await fetchLinkPreview(url);
+  linkPreviewQueue.delete(id);
+
+  const item = state.items.find((entry) => entry.id === id);
+  if (!item || item.url !== url) return;
+
+  state.items = state.items.map((entry) =>
+    entry.id === id
+      ? { ...entry, linkPreview: preview || entry.linkPreview || null, previewFailed: !preview }
+      : entry
+  );
+  render();
 }
 
 function matchesView(item) {
@@ -1119,6 +1240,7 @@ function saveItem(event) {
     : typeFromQuickText(quickText, url);
   const memo = els.memoInput.value.trim() || textWithoutUrls(quickText, url ? [url] : []);
   const title = els.titleInput.value.trim() || (type === "image" ? defaultImageTitle() : titleFromQuickText(quickText, url));
+  const oldItemForPreview = editingId ? state.items.find((entry) => entry.id === editingId) : null;
   const item = {
     id: editingId || crypto.randomUUID(),
     title,
@@ -1128,15 +1250,15 @@ function saveItem(event) {
     tags: els.tagsInput.value.split(",").map((tag) => tag.trim()).filter(Boolean),
     content: quickText || (type === "image" ? "이미지 첨부" : ""),
     memo,
+    linkPreview: oldItemForPreview?.url === url ? oldItemForPreview.linkPreview : null,
     favorite: false,
     createdAt: new Date().toISOString()
   };
 
   if (editingId) {
-    const oldItem = state.items.find((entry) => entry.id === editingId);
     state.items = state.items.map((entry) =>
       entry.id === editingId
-        ? { ...item, favorite: oldItem?.favorite || false, createdAt: oldItem?.createdAt || item.createdAt }
+        ? { ...item, favorite: oldItemForPreview?.favorite || false, createdAt: oldItemForPreview?.createdAt || item.createdAt }
         : entry
     );
   } else {
@@ -1372,6 +1494,7 @@ function openDetailModal(item) {
   const image = item.type === "image" && item.url
     ? `<img class="detail-image" src="${escapeAttribute(item.url)}" alt="${escapeAttribute(item.title)}" />`
     : "";
+  const linkPreview = renderLinkPreview(item);
 
   els.detailBody.innerHTML = `
     <h2>${escapeHtml(item.title)}</h2>
@@ -1381,6 +1504,7 @@ function openDetailModal(item) {
       <span>${formatDate(item.createdAt)}</span>
     </div>
     ${image}
+    ${linkPreview}
     ${detailRow("내용", content)}
     ${detailRow("메모", item.memo && item.memo !== content ? item.memo : "")}
     ${detailRow("태그", tags)}
