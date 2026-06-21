@@ -79,6 +79,7 @@ const els = {
   imageImportInput: document.querySelector("#imageImportInput"),
   quickImageInput: document.querySelector("#quickImageInput"),
   pendingImageStatus: document.querySelector("#pendingImageStatus"),
+  pendingImagePreview: document.querySelector("#pendingImagePreview"),
   importStatus: document.querySelector("#importStatus"),
   bulkDeleteButton: document.querySelector("#bulkDeleteButton"),
   selectAllButton: document.querySelector("#selectAllButton"),
@@ -956,6 +957,7 @@ function resetForm() {
   els.quickInput.value = "";
   els.typeInput.value = "link";
   els.urlInput.value = "";
+  showPendingImagePreview("");
   els.categoryInput.value = activeSaveCategory();
   els.quickCategoryInput.value = activeSaveCategory();
   els.composer.classList.remove("advanced-open");
@@ -1007,10 +1009,25 @@ function defaultImageTitle() {
   }).format(new Date())}`;
 }
 
+function showPendingImagePreview(dataUrl) {
+  if (!dataUrl) {
+    els.pendingImagePreview.hidden = true;
+    els.pendingImagePreview.innerHTML = "";
+    return;
+  }
+
+  els.pendingImagePreview.hidden = false;
+  els.pendingImagePreview.innerHTML = `
+    <img src="${escapeAttribute(dataUrl)}" alt="첨부한 이미지 미리보기" />
+    <span>이미지가 내용에 첨부됐습니다.</span>
+  `;
+}
+
 async function prepareImageForForm(file) {
   const dataUrl = await imageFileToStoredDataUrl(file);
   els.urlInput.value = dataUrl;
   els.typeInput.value = "image";
+  showPendingImagePreview(dataUrl);
   els.composer.classList.remove("collapsed");
   els.composer.classList.add("advanced-open");
   els.advancedToggleButton.textContent = "\uac04\ub2e8\ud788";
@@ -1071,7 +1088,7 @@ function saveItem(event) {
     url,
     category: els.quickCategoryInput.value || els.categoryInput.value,
     tags: els.tagsInput.value.split(",").map((tag) => tag.trim()).filter(Boolean),
-    content: quickText,
+    content: quickText || (type === "image" ? "이미지 첨부" : ""),
     memo,
     favorite: false,
     createdAt: new Date().toISOString()
@@ -1103,6 +1120,7 @@ function editItem(id) {
   els.titleInput.value = item.title;
   els.typeInput.value = item.type;
   els.urlInput.value = item.url;
+  showPendingImagePreview(item.type === "image" ? item.url : "");
   els.categoryInput.value = item.category;
   els.quickCategoryInput.value = item.category;
   els.tagsInput.value = item.tags.join(", ");

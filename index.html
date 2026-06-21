@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#111827" />
     <title>내서랍</title>
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="stylesheet" href="./styles.css?v=23" />
+    <link rel="stylesheet" href="./styles.css?v=24" />
   </head>
   <body>
     <div class="app-shell">
@@ -75,6 +75,7 @@
               <label class="wide">
                 내용
                 <textarea id="quickInput" rows="4" placeholder="링크를 붙여넣거나 메모를 적어주세요. 이미지는 Ctrl+V 또는 이미지 선택 후 제목/메모를 정하고 저장합니다."></textarea>
+                <div class="pending-image-preview" id="pendingImagePreview" hidden></div>
               </label>
               <label>
                 카테고리
@@ -194,6 +195,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./app.js?v=23"></script>
+    <script src="./app.js?v=24"></script>
   </body>
 </html>
