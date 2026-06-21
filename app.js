@@ -94,6 +94,7 @@ const els = {
   imageModal: document.querySelector("#imageModal"),
   modalImage: document.querySelector("#modalImage"),
   modalCloseButton: document.querySelector("#modalCloseButton"),
+  modalEditButton: document.querySelector("#modalEditButton"),
   modalSaveButton: document.querySelector("#modalSaveButton"),
   detailModal: document.querySelector("#detailModal"),
   detailBody: document.querySelector("#detailBody"),
@@ -1021,29 +1022,7 @@ async function prepareImageForForm(file) {
 }
 
 async function addPastedImage(file) {
-  const dataUrl = await imageFileToStoredDataUrl(file);
-  const now = new Date();
-  const item = {
-    id: crypto.randomUUID(),
-    title: `붙여넣은 이미지 ${new Intl.DateTimeFormat("ko-KR", {
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit"
-    }).format(now)}`,
-    type: "image",
-    url: dataUrl,
-    category: els.quickCategoryInput.value || activeSaveCategory(),
-    tags: ["이미지", "붙여넣기"],
-    memo: "Ctrl+V로 붙여넣은 이미지",
-    favorite: false,
-    createdAt: now.toISOString()
-  };
-
-  state.items = [item, ...state.items];
-  state.activeView = item.category;
-  render();
-  els.importStatus.textContent = "이미지를 저장했습니다.";
+  await prepareImageForForm(file);
 }
 
 function handlePaste(event) {
@@ -1308,6 +1287,14 @@ function saveActiveModalImage() {
   });
 }
 
+function editActiveModalImage() {
+  const itemId = activeImageItemId;
+  if (!itemId) return;
+  closeImageModal();
+  editItem(itemId);
+  els.composer.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function detailRow(label, value, options = {}) {
   if (!value) return "";
   const body = options.link
@@ -1499,6 +1486,7 @@ els.itemList.addEventListener("click", (event) => {
 });
 
 els.modalCloseButton.addEventListener("click", closeImageModal);
+els.modalEditButton.addEventListener("click", editActiveModalImage);
 els.modalSaveButton.addEventListener("click", saveActiveModalImage);
 els.imageModal.addEventListener("click", (event) => {
   if (event.target === els.imageModal) closeImageModal();
