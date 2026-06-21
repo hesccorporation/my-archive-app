@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#111827" />
     <title>내서랍</title>
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="stylesheet" href="./styles.css?v=21" />
+    <link rel="stylesheet" href="./styles.css?v=22" />
   </head>
   <body>
     <div class="app-shell">
@@ -74,12 +74,17 @@
             <div class="quick-save-grid">
               <label class="wide">
                 내용
-                <textarea id="quickInput" rows="4" placeholder="링크를 붙여넣거나 메모를 적어주세요. 이미지는 Ctrl+V 또는 사진/캡처 선택으로 저장됩니다."></textarea>
+                <textarea id="quickInput" rows="4" placeholder="링크를 붙여넣거나 메모를 적어주세요. 이미지는 Ctrl+V 또는 이미지 선택 후 제목/메모를 정하고 저장합니다."></textarea>
               </label>
               <label>
                 카테고리
                 <select id="quickCategoryInput"></select>
               </label>
+              <div class="quick-image-tools">
+                <label class="file-button secondary" for="quickImageInput">이미지 선택</label>
+                <input id="quickImageInput" type="file" accept="image/*" />
+                <p id="pendingImageStatus">이미지는 선택하거나 Ctrl+V로 붙인 뒤 제목/메모를 적고 저장할 수 있습니다.</p>
+              </div>
             </div>
             <div class="form-grid">
               <label>
@@ -188,6 +193,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./app.js?v=21"></script>
+    <script src="./app.js?v=22"></script>
   </body>
 </html>

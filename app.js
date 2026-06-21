@@ -77,6 +77,8 @@ const els = {
   composer: document.querySelector("#composer"),
   kakaoImportInput: document.querySelector("#kakaoImportInput"),
   imageImportInput: document.querySelector("#imageImportInput"),
+  quickImageInput: document.querySelector("#quickImageInput"),
+  pendingImageStatus: document.querySelector("#pendingImageStatus"),
   importStatus: document.querySelector("#importStatus"),
   bulkDeleteButton: document.querySelector("#bulkDeleteButton"),
   selectAllButton: document.querySelector("#selectAllButton"),
@@ -952,10 +954,12 @@ function resetForm() {
   els.itemForm.reset();
   els.quickInput.value = "";
   els.typeInput.value = "link";
+  els.urlInput.value = "";
   els.categoryInput.value = activeSaveCategory();
   els.quickCategoryInput.value = activeSaveCategory();
   els.composer.classList.remove("advanced-open");
   els.advancedToggleButton.textContent = "\uc790\uc138\ud788";
+  els.pendingImageStatus.textContent = "이미지는 선택하거나 Ctrl+V로 붙인 뒤 제목/메모를 적고 저장할 수 있습니다.";
 }
 
 function readFileAsDataUrl(file) {
@@ -993,6 +997,29 @@ async function imageFileToStoredDataUrl(file) {
   return canvas.toDataURL("image/jpeg", 0.86);
 }
 
+function defaultImageTitle() {
+  return `붙여넣은 이미지 ${new Intl.DateTimeFormat("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date())}`;
+}
+
+async function prepareImageForForm(file) {
+  const dataUrl = await imageFileToStoredDataUrl(file);
+  els.urlInput.value = dataUrl;
+  els.typeInput.value = "image";
+  els.composer.classList.remove("collapsed");
+  els.composer.classList.add("advanced-open");
+  els.advancedToggleButton.textContent = "\uac04\ub2e8\ud788";
+  if (!els.titleInput.value.trim()) els.titleInput.value = defaultImageTitle();
+  if (!els.memoInput.value.trim()) els.memoInput.value = "이미지";
+  if (!els.tagsInput.value.trim()) els.tagsInput.value = "이미지";
+  els.pendingImageStatus.textContent = "이미지가 첨부됐습니다. 제목, 카테고리, 태그, 메모를 정한 뒤 저장하세요.";
+  els.titleInput.focus();
+}
+
 async function addPastedImage(file) {
   const dataUrl = await imageFileToStoredDataUrl(file);
   const now = new Date();
@@ -1028,7 +1055,7 @@ function handlePaste(event) {
   if (!file) return;
 
   event.preventDefault();
-  addPastedImage(file).catch(() => {
+  prepareImageForForm(file).catch(() => {
     els.importStatus.textContent = "이미지를 붙여넣는 중 문제가 생겼습니다.";
   });
 }
@@ -1057,7 +1084,7 @@ function saveItem(event) {
     ? els.typeInput.value
     : typeFromQuickText(quickText, url);
   const memo = els.memoInput.value.trim() || textWithoutUrls(quickText, url ? [url] : []);
-  const title = els.titleInput.value.trim() || titleFromQuickText(quickText, url);
+  const title = els.titleInput.value.trim() || (type === "image" ? defaultImageTitle() : titleFromQuickText(quickText, url));
   const item = {
     id: editingId || crypto.randomUUID(),
     title,
@@ -1360,8 +1387,18 @@ els.kakaoImportInput.addEventListener("change", (event) => {
 els.imageImportInput.addEventListener("change", (event) => {
   const file = event.target.files?.[0];
   if (file) {
-    addPastedImage(file).catch(() => {
+    prepareImageForForm(file).catch(() => {
       els.importStatus.textContent = "이미지를 가져오는 중 문제가 생겼습니다.";
+    });
+  }
+  event.target.value = "";
+});
+
+els.quickImageInput.addEventListener("change", (event) => {
+  const file = event.target.files?.[0];
+  if (file) {
+    prepareImageForForm(file).catch(() => {
+      els.pendingImageStatus.textContent = "이미지를 불러오는 중 문제가 생겼습니다.";
     });
   }
   event.target.value = "";
