@@ -8,7 +8,7 @@
     <title>내서랍</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=30" />
+    <link rel="stylesheet" href="./styles.css?v=31" />
   </head>
   <body>
     <div class="app-shell">
@@ -208,7 +208,18 @@
       </div>
     </div>
 
+    <aside class="update-prompt" id="updatePrompt" role="dialog" aria-live="polite" aria-label="내서랍 업데이트" hidden>
+      <div>
+        <p class="update-title">내서랍 새 버전이 있습니다</p>
+        <p class="update-message">저장된 자료는 그대로 유지되고 새 기능만 적용됩니다.</p>
+      </div>
+      <div class="update-actions">
+        <button class="update-later-button" id="updateLaterButton" type="button">나중에</button>
+        <button class="update-now-button" id="updateNowButton" type="button">지금 업데이트</button>
+      </div>
+    </aside>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./app.js?v=30"></script>
+    <script src="./app.js?v=31"></script>
   </body>
 </html>

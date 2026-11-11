@@ -48,6 +48,9 @@ let suppressRemoteSave = false;
 let activeImageItemId = "";
 let activeDetailItemId = "";
 let deferredInstallPrompt = null;
+let waitingServiceWorker = null;
+let refreshingForUpdate = false;
+let updateDismissed = false;
 const linkPreviewQueue = new Set();
 
 const els = {
@@ -108,7 +111,10 @@ const els = {
   detailModal: document.querySelector("#detailModal"),
   detailBody: document.querySelector("#detailBody"),
   detailCloseButton: document.querySelector("#detailCloseButton"),
-  detailEditButton: document.querySelector("#detailEditButton")
+  detailEditButton: document.querySelector("#detailEditButton"),
+  updatePrompt: document.querySelector("#updatePrompt"),
+  updateNowButton: document.querySelector("#updateNowButton"),
+  updateLaterButton: document.querySelector("#updateLaterButton")
 };
 
 function isStandaloneMode() {
@@ -149,6 +155,38 @@ els.installAppButton?.addEventListener("click", async () => {
 });
 
 updateInstallPanel();
+
+function showUpdatePrompt(worker) {
+  if (!worker || updateDismissed || !navigator.serviceWorker.controller) return;
+  waitingServiceWorker = worker;
+  els.updatePrompt.hidden = false;
+}
+
+function watchForServiceWorkerUpdate(registration) {
+  if (registration.waiting) showUpdatePrompt(registration.waiting);
+
+  registration.addEventListener("updatefound", () => {
+    const worker = registration.installing;
+    if (!worker) return;
+
+    worker.addEventListener("statechange", () => {
+      if (worker.state === "installed") showUpdatePrompt(worker);
+    });
+  });
+}
+
+els.updateNowButton?.addEventListener("click", () => {
+  if (!waitingServiceWorker) return;
+  refreshingForUpdate = true;
+  els.updateNowButton.disabled = true;
+  els.updateNowButton.textContent = "업데이트 중...";
+  waitingServiceWorker.postMessage({ type: "SKIP_WAITING" });
+});
+
+els.updateLaterButton?.addEventListener("click", () => {
+  updateDismissed = true;
+  els.updatePrompt.hidden = true;
+});
 
 function loadState() {
   try {
@@ -1838,7 +1876,15 @@ document.querySelectorAll("[data-mobile-view-mode]").forEach((button) => {
 });
 
 if ("serviceWorker" in navigator && location.protocol !== "file:") {
-  navigator.serviceWorker.register("./sw.js").catch(() => {});
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (refreshingForUpdate) window.location.reload();
+  });
+
+  navigator.serviceWorker.register("./sw.js").then((registration) => {
+    watchForServiceWorkerUpdate(registration);
+    registration.update().catch(() => {});
+    window.addEventListener("focus", () => registration.update().catch(() => {}));
+  }).catch(() => {});
 }
 
 initializeStorage().finally(() => {
