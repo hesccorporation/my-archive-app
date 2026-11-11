@@ -47,6 +47,7 @@ let remoteSaveTimer = null;
 let suppressRemoteSave = false;
 let activeImageItemId = "";
 let activeDetailItemId = "";
+let deferredInstallPrompt = null;
 const linkPreviewQueue = new Set();
 
 const els = {
@@ -74,6 +75,9 @@ const els = {
   currentViewLabel: document.querySelector("#currentViewLabel"),
   currentViewTitle: document.querySelector("#currentViewTitle"),
   newItemButton: document.querySelector("#newItemButton"),
+  installPanel: document.querySelector("#installPanel"),
+  installAppButton: document.querySelector("#installAppButton"),
+  installAppStatus: document.querySelector("#installAppStatus"),
   mobileAddButton: document.querySelector("#mobileAddButton"),
   composer: document.querySelector("#composer"),
   kakaoImportInput: document.querySelector("#kakaoImportInput"),
@@ -106,6 +110,45 @@ const els = {
   detailCloseButton: document.querySelector("#detailCloseButton"),
   detailEditButton: document.querySelector("#detailEditButton")
 };
+
+function isStandaloneMode() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+function updateInstallPanel() {
+  if (!els.installPanel) return;
+  els.installPanel.hidden = isStandaloneMode();
+}
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  updateInstallPanel();
+});
+
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  if (els.installPanel) els.installPanel.hidden = true;
+});
+
+els.installAppButton?.addEventListener("click", async () => {
+  if (!deferredInstallPrompt) {
+    els.installAppStatus.textContent = "Edge나 Chrome 주소창 오른쪽의 설치 아이콘을 눌러 주세요.";
+    return;
+  }
+
+  deferredInstallPrompt.prompt();
+  const { outcome } = await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+
+  if (outcome === "accepted") {
+    els.installAppStatus.textContent = "설치가 끝나면 바탕화면이나 작업표시줄에서 실행할 수 있습니다.";
+  } else {
+    els.installAppStatus.textContent = "설치를 취소했습니다. 필요할 때 다시 눌러 주세요.";
+  }
+});
+
+updateInstallPanel();
 
 function loadState() {
   try {

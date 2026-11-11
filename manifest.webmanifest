@@ -2,10 +2,16 @@
   "name": "내서랍",
   "short_name": "내서랍",
   "description": "링크, 메모, 자료를 내 카테고리로 정리하는 개인 자료함",
-  "start_url": "./index.html",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
   "background_color": "#f4f1ea",
   "theme_color": "#111827",
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
   "share_target": {
     "action": "./index.html",
     "method": "GET",
