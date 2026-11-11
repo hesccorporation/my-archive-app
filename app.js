@@ -97,8 +97,6 @@ const els = {
   emailInput: document.querySelector("#emailInput"),
   loginButton: document.querySelector("#loginButton"),
   logoutButton: document.querySelector("#logoutButton"),
-  pullButton: document.querySelector("#pullButton"),
-  pushButton: document.querySelector("#pushButton"),
   syncStatus: document.querySelector("#syncStatus"),
   passwordInput: document.querySelector("#passwordInput"),
   signupButton: document.querySelector("#signupButton"),
@@ -320,8 +318,6 @@ function setSyncButtons() {
   els.authSignedOut.hidden = signedIn;
   els.authSignedIn.hidden = !signedIn;
   els.logoutButton.disabled = !signedIn;
-  els.pullButton.disabled = !signedIn;
-  els.pushButton.disabled = !signedIn;
 
   const email = currentUser?.email || "";
   els.accountEmail.textContent = email || "로그인된 계정";
@@ -344,7 +340,7 @@ async function initializeAuth() {
     setSyncStatus(`${currentUser.email} 로그인됨. 서버 자료를 확인하는 중...`);
     await pullRemoteState({ silent: true });
     remoteReady = true;
-    setSyncStatus(`${currentUser.email} 동기화 준비됨`);
+    setSyncStatus("자동 저장 켜짐");
   } else {
     setSyncStatus("로그인하면 모든 기기에서 같은 자료를 볼 수 있어요.");
   }
@@ -359,7 +355,7 @@ async function initializeAuth() {
       setSyncStatus(`${currentUser.email} 로그인됨. 서버 자료를 불러오는 중...`);
       await pullRemoteState({ silent: true });
       remoteReady = true;
-      setSyncStatus(`${currentUser.email} 동기화 준비됨`);
+      setSyncStatus("자동 저장 켜짐");
       render();
     } else {
       selectedIds.clear();
@@ -404,7 +400,7 @@ async function signupWithPassword() {
   if (currentUser) {
     await pushRemoteState({ silent: true });
     remoteReady = true;
-    setSyncStatus(`${fields.email} 회원가입 및 로그인 완료`);
+    setSyncStatus("자동 저장 켜짐");
   } else {
     setSyncStatus("회원가입 완료. 이메일 확인이 필요하면 메일함을 확인해 주세요.");
   }
@@ -431,7 +427,7 @@ async function loginWithPassword() {
   if (currentUser) {
     await pullRemoteState({ silent: true });
     remoteReady = true;
-    setSyncStatus(`${fields.email} 로그인 완료`);
+    setSyncStatus("자동 저장 켜짐");
     render();
   }
 }
@@ -469,8 +465,9 @@ async function logout() {
 
 function scheduleRemoteSave() {
   window.clearTimeout(remoteSaveTimer);
+  setSyncStatus("변경사항 저장 중...");
   remoteSaveTimer = window.setTimeout(() => {
-    pushRemoteState({ silent: true });
+    pushRemoteState({ silent: true, auto: true });
   }, 800);
 }
 
@@ -538,6 +535,8 @@ async function pushRemoteState(options = {}) {
 
   if (!options.silent) {
     setSyncStatus(`서버에 저장했습니다. ${state.items.length}개`);
+  } else if (options.auto) {
+    setSyncStatus("방금 자동 저장됨");
   }
 }
 
@@ -1739,8 +1738,6 @@ els.resetPasswordButton.addEventListener("click", resetPassword);
 els.passwordInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") loginWithPassword();
 });
-els.pullButton.addEventListener("click", () => pullRemoteState());
-els.pushButton.addEventListener("click", () => pushRemoteState());
 
 els.selectAllButton.addEventListener("click", toggleVisibleSelection);
 els.bulkDeleteButton.addEventListener("click", deleteSelectedItems);
