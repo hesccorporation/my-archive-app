@@ -103,6 +103,10 @@ const els = {
   passwordInput: document.querySelector("#passwordInput"),
   signupButton: document.querySelector("#signupButton"),
   resetPasswordButton: document.querySelector("#resetPasswordButton"),
+  authSignedOut: document.querySelector("#authSignedOut"),
+  authSignedIn: document.querySelector("#authSignedIn"),
+  accountAvatar: document.querySelector("#accountAvatar"),
+  accountEmail: document.querySelector("#accountEmail"),
   imageModal: document.querySelector("#imageModal"),
   modalImage: document.querySelector("#modalImage"),
   modalCloseButton: document.querySelector("#modalCloseButton"),
@@ -313,9 +317,15 @@ function setSyncStatus(message) {
 
 function setSyncButtons() {
   const signedIn = Boolean(currentUser);
+  els.authSignedOut.hidden = signedIn;
+  els.authSignedIn.hidden = !signedIn;
   els.logoutButton.disabled = !signedIn;
   els.pullButton.disabled = !signedIn;
   els.pushButton.disabled = !signedIn;
+
+  const email = currentUser?.email || "";
+  els.accountEmail.textContent = email || "로그인된 계정";
+  els.accountAvatar.textContent = email ? email.slice(0, 1).toUpperCase() : "내";
 }
 
 async function initializeAuth() {
@@ -336,7 +346,7 @@ async function initializeAuth() {
     remoteReady = true;
     setSyncStatus(`${currentUser.email} 동기화 준비됨`);
   } else {
-    setSyncStatus("로그인하면 PC와 휴대폰이 같은 자료를 봅니다.");
+    setSyncStatus("로그인하면 모든 기기에서 같은 자료를 볼 수 있어요.");
   }
 
   supabaseClient.auth.onAuthStateChange(async (_event, session) => {
@@ -1726,6 +1736,9 @@ els.signupButton.addEventListener("click", signupWithPassword);
 els.loginButton.addEventListener("click", loginWithPassword);
 els.logoutButton.addEventListener("click", logout);
 els.resetPasswordButton.addEventListener("click", resetPassword);
+els.passwordInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") loginWithPassword();
+});
 els.pullButton.addEventListener("click", () => pullRemoteState());
 els.pushButton.addEventListener("click", () => pushRemoteState());
 

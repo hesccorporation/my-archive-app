@@ -8,7 +8,7 @@
     <title>내서랍</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=31" />
+    <link rel="stylesheet" href="./styles.css?v=32" />
   </head>
   <body>
     <div class="app-shell">
@@ -34,24 +34,45 @@
           <button id="installAppButton" type="button">PC 앱으로 설치</button>
         </section>
 
-        <section class="sync-panel" aria-label="동기화">
-          <p class="sync-title">기기 동기화</p>
-          <p class="sync-status" id="syncStatus">로그인하면 PC와 휴대폰이 같은 자료를 봅니다.</p>
-          <label class="sr-only" for="emailInput">이메일</label>
-          <input id="emailInput" type="email" placeholder="이메일" autocomplete="email" />
-          <label class="sr-only" for="passwordInput">비밀번호</label>
-          <input id="passwordInput" type="password" placeholder="비밀번호 6자 이상" autocomplete="current-password" />
-          <div class="sync-actions">
-            <button id="signupButton" type="button">회원가입</button>
-            <button id="loginButton" type="button">로그인</button>
+        <section class="sync-panel" aria-label="계정과 동기화">
+          <header class="sync-heading">
+            <span class="sync-indicator" aria-hidden="true"></span>
+            <div>
+              <p class="sync-title">내 자료 동기화</p>
+              <p class="sync-status" id="syncStatus">로그인하면 모든 기기에서 같은 자료를 볼 수 있어요.</p>
+            </div>
+          </header>
+
+          <div class="auth-signed-out" id="authSignedOut">
+            <label class="auth-field" for="emailInput">
+              <span>이메일</span>
+              <input id="emailInput" type="email" placeholder="name@example.com" autocomplete="email" />
+            </label>
+            <label class="auth-field" for="passwordInput">
+              <span>비밀번호</span>
+              <input id="passwordInput" type="password" placeholder="6자 이상 입력" autocomplete="current-password" />
+            </label>
+            <button class="auth-primary-button" id="loginButton" type="button">로그인</button>
+            <div class="auth-link-actions">
+              <button id="signupButton" type="button">계정 만들기</button>
+              <span aria-hidden="true">·</span>
+              <button id="resetPasswordButton" type="button">비밀번호 찾기</button>
+            </div>
           </div>
-          <div class="sync-actions">
-            <button id="logoutButton" type="button">로그아웃</button>
-            <button id="resetPasswordButton" type="button">비밀번호 재설정</button>
-          </div>
-          <div class="sync-actions">
-            <button id="pullButton" type="button">서버에서 불러오기</button>
-            <button id="pushButton" type="button">서버에 저장</button>
+
+          <div class="auth-signed-in" id="authSignedIn" hidden>
+            <div class="account-summary">
+              <span class="account-avatar" id="accountAvatar" aria-hidden="true">내</span>
+              <div>
+                <small>로그인 계정</small>
+                <strong id="accountEmail">-</strong>
+              </div>
+            </div>
+            <div class="sync-actions">
+              <button id="pullButton" type="button">자료 불러오기</button>
+              <button id="pushButton" type="button">지금 저장</button>
+            </div>
+            <button class="logout-button" id="logoutButton" type="button">로그아웃</button>
           </div>
         </section>
 
@@ -220,6 +241,6 @@
     </aside>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./app.js?v=31"></script>
+    <script src="./app.js?v=32"></script>
   </body>
 </html>
