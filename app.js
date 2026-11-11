@@ -3,6 +3,9 @@ const DB_NAME = "my-archive-app-db";
 const DB_STORE = "state";
 const APP_URL = "https://hesccorporation.github.io/my-archive-app/";
 const SUPABASE_URL = "https://askukytiskyakvbxtpan.supabase.co";
+const REMOTE_ITEMS_TABLE = "archive_items";
+const MEDIA_BUCKET = "archive-media";
+const REMOTE_SCHEMA_VERSION = 2;
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFza3VreXRpc2t5YWt2Ynh0cGFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5MDE5NjcsImV4cCI6MjA5NzQ3Nzk2N30.3Sygw5Op7g2sAZdXlNb-HWKbHfVLCormsBqhhxmOcpQ";
 
 const defaultState = {
@@ -45,6 +48,10 @@ let currentUser = null;
 let remoteReady = false;
 let remoteSaveTimer = null;
 let suppressRemoteSave = false;
+let remoteSchemaAvailable = null;
+let remoteSyncInFlight = false;
+let remoteSyncPending = false;
+let remoteItemSnapshot = new Map();
 let activeImageItemId = "";
 let activeDetailItemId = "";
 let deferredInstallPrompt = null;
@@ -358,6 +365,8 @@ async function initializeAuth() {
       setSyncStatus("자동 저장 켜짐");
       render();
     } else {
+      remoteSchemaAvailable = null;
+      remoteItemSnapshot = new Map();
       selectedIds.clear();
       setSyncStatus("로그아웃됨");
       render();
@@ -457,6 +466,8 @@ async function logout() {
   await supabaseClient.auth.signOut();
   currentUser = null;
   remoteReady = false;
+  remoteSchemaAvailable = null;
+  remoteItemSnapshot = new Map();
   selectedIds.clear();
   setSyncButtons();
   setSyncStatus("로그아웃됨");
@@ -465,10 +476,153 @@ async function logout() {
 
 function scheduleRemoteSave() {
   window.clearTimeout(remoteSaveTimer);
-  setSyncStatus("변경사항 저장 중...");
+  setSyncStatus("변경사항 확인 중...");
   remoteSaveTimer = window.setTimeout(() => {
     pushRemoteState({ silent: true, auto: true });
-  }, 800);
+  }, 300);
+}
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function canonicalRemoteItem(item) {
+  const copy = cloneJson(item);
+  if (copy.storagePath && !String(copy.url || "").startsWith("data:")) copy.url = "";
+  if (copy.linkPreview?.storagePath && !String(copy.linkPreview.image || "").startsWith("data:")) {
+    copy.linkPreview.image = "";
+  }
+  return copy;
+}
+
+function remoteSettings() {
+  return {
+    schemaVersion: REMOTE_SCHEMA_VERSION,
+    categories: state.categories,
+    activeView: state.activeView,
+    typeFilter: state.typeFilter,
+    viewMode: state.viewMode,
+    items: []
+  };
+}
+
+function isDataUrl(value) {
+  return typeof value === "string" && value.startsWith("data:");
+}
+
+function extensionFromMimeType(mimeType) {
+  const type = String(mimeType || "").split(";")[0].toLowerCase();
+  const extensions = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "image/svg+xml": "svg"
+  };
+  return extensions[type] || "bin";
+}
+
+async function signedMediaUrl(path) {
+  if (!path) return "";
+  const { data, error } = await supabaseClient.storage
+    .from(MEDIA_BUCKET)
+    .createSignedUrl(path, 60 * 60 * 24 * 365);
+  if (error) throw error;
+  return data?.signedUrl || "";
+}
+
+async function uploadMediaDataUrl(dataUrl, itemId, kind) {
+  const blob = await dataUrlToBlob(dataUrl);
+  const extension = extensionFromMimeType(blob.type);
+  const path = `${currentUser.id}/${itemId}/${kind}-${Date.now()}-${crypto.randomUUID()}.${extension}`;
+  const { error } = await supabaseClient.storage
+    .from(MEDIA_BUCKET)
+    .upload(path, blob, {
+      cacheControl: "31536000",
+      contentType: blob.type || "application/octet-stream",
+      upsert: false
+    });
+  if (error) throw error;
+  return path;
+}
+
+async function prepareItemMedia(item) {
+  const stalePaths = [];
+  let changedLocalState = false;
+
+  if (item.type === "image" && isDataUrl(item.url)) {
+    const previousPath = item.storagePath || "";
+    const path = await uploadMediaDataUrl(item.url, item.id, "image");
+    item.storagePath = path;
+    item.url = await signedMediaUrl(path);
+    changedLocalState = true;
+    if (previousPath && previousPath !== path) stalePaths.push(previousPath);
+  }
+
+  if (item.linkPreview && isDataUrl(item.linkPreview.image)) {
+    const previousPath = item.linkPreview.storagePath || "";
+    const path = await uploadMediaDataUrl(item.linkPreview.image, item.id, "thumbnail");
+    item.linkPreview.storagePath = path;
+    item.linkPreview.image = await signedMediaUrl(path);
+    changedLocalState = true;
+    if (previousPath && previousPath !== path) stalePaths.push(previousPath);
+  }
+
+  return { stalePaths, changedLocalState };
+}
+
+async function hydrateRemoteItem(item) {
+  const copy = cloneJson(item);
+  if (copy.storagePath) copy.url = await signedMediaUrl(copy.storagePath);
+  if (copy.linkPreview?.storagePath) {
+    copy.linkPreview.image = await signedMediaUrl(copy.linkPreview.storagePath);
+  }
+  return copy;
+}
+
+function storagePathsFromItem(item) {
+  return [item?.storagePath, item?.linkPreview?.storagePath].filter(Boolean);
+}
+
+async function persistLocalStateWithoutSync() {
+  const wasSuppressed = suppressRemoteSave;
+  suppressRemoteSave = true;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {}
+  await saveStateToDatabase().catch(() => {});
+  suppressRemoteSave = wasSuppressed;
+}
+
+function isMissingItemsTable(error) {
+  const message = `${error?.code || ""} ${error?.message || ""}`.toLowerCase();
+  return message.includes("42p01")
+    || message.includes("archive_items") && (message.includes("schema cache") || message.includes("does not exist"));
+}
+
+function isMissingMediaBucket(error) {
+  const message = `${error?.code || ""} ${error?.message || ""}`.toLowerCase();
+  return message.includes("bucket not found")
+    || message.includes("archive-media") && message.includes("not found");
+}
+
+async function loadLegacyRemoteState(settingsRow, options = {}) {
+  remoteSchemaAvailable = false;
+  remoteItemSnapshot = new Map();
+
+  if (settingsRow?.data) {
+    suppressRemoteSave = true;
+    state = normalizeState(settingsRow.data);
+    selectedIds.clear();
+    await persistLocalStateWithoutSync();
+    render();
+    suppressRemoteSave = false;
+    if (!options.silent) setSyncStatus(`서버 자료를 불러왔습니다. ${state.items.length}개`);
+    return true;
+  }
+
+  await pushLegacyRemoteState({ silent: true });
+  return false;
 }
 
 async function pullRemoteState(options = {}) {
@@ -478,41 +632,85 @@ async function pullRemoteState(options = {}) {
   }
 
   if (!options.silent) setSyncStatus("서버에서 불러오는 중...");
-  const { data, error } = await supabaseClient
+  const settingsResult = await supabaseClient
     .from("archive_state")
     .select("data, updated_at")
     .eq("user_id", currentUser.id)
     .maybeSingle();
 
-  if (error) {
-    setSyncStatus(`서버 불러오기 실패: ${error.message}`);
+  if (settingsResult.error) {
+    setSyncStatus(`서버 불러오기 실패: ${settingsResult.error.message}`);
     return;
   }
 
-  if (data?.data) {
+  const itemsResult = await supabaseClient
+    .from(REMOTE_ITEMS_TABLE)
+    .select("id, data, updated_at")
+    .eq("user_id", currentUser.id);
+
+  if (itemsResult.error) {
+    if (isMissingItemsTable(itemsResult.error)) {
+      await loadLegacyRemoteState(settingsResult.data, options);
+      return;
+    }
+    setSyncStatus(`서버 불러오기 실패: ${itemsResult.error.message}`);
+    return;
+  }
+
+  remoteSchemaAvailable = true;
+  const rows = itemsResult.data || [];
+  const legacyItems = Array.isArray(settingsResult.data?.data?.items)
+    ? settingsResult.data.data.items
+    : [];
+
+  if (rows.length) {
+    const hydratedItems = await Promise.all(rows.map((row) => hydrateRemoteItem(row.data)));
+    remoteItemSnapshot = new Map(rows.map((row) => [row.id, canonicalRemoteItem(row.data)]));
     suppressRemoteSave = true;
-    state = normalizeState(data.data);
+    state = normalizeState({ ...(settingsResult.data?.data || {}), items: hydratedItems });
     selectedIds.clear();
-    await saveStateToDatabase().catch(() => {});
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {}
+    await persistLocalStateWithoutSync();
     render();
     suppressRemoteSave = false;
     if (!options.silent) setSyncStatus(`서버 자료를 불러왔습니다. ${state.items.length}개`);
     return;
   }
 
-  await pushRemoteState({ silent: true });
-  if (!options.silent) setSyncStatus("서버에 자료가 없어 현재 자료를 저장했습니다.");
-}
-
-async function pushRemoteState(options = {}) {
-  if (!supabaseClient || !currentUser) {
-    setSyncStatus("먼저 로그인해 주세요.");
+  if (legacyItems.length) {
+    suppressRemoteSave = true;
+    state = normalizeState(settingsResult.data.data);
+    selectedIds.clear();
+    await persistLocalStateWithoutSync();
+    render();
+    suppressRemoteSave = false;
+    try {
+      await syncRemoteStateV2();
+      if (!options.silent) setSyncStatus(`기존 자료 ${state.items.length}개를 새 저장 방식으로 옮겼습니다.`);
+    } catch (error) {
+      remoteSchemaAvailable = false;
+      await pushLegacyRemoteState({ silent: true }).catch(() => {});
+      setSyncStatus(`기존 저장 방식을 유지합니다: ${error.message || error}`);
+    }
     return;
   }
 
+  if (settingsResult.data?.data) {
+    suppressRemoteSave = true;
+    state = normalizeState({ ...settingsResult.data.data, items: [] });
+    selectedIds.clear();
+    await persistLocalStateWithoutSync();
+    render();
+    suppressRemoteSave = false;
+    if (!options.silent) setSyncStatus("서버 자료를 불러왔습니다.");
+    return;
+  }
+
+  remoteItemSnapshot = new Map();
+  await syncRemoteStateV2();
+  if (!options.silent) setSyncStatus("현재 자료를 서버에 저장했습니다.");
+}
+
+async function pushLegacyRemoteState(options = {}) {
   if (!options.silent) setSyncStatus("서버에 저장하는 중...");
   const { error } = await supabaseClient
     .from("archive_state")
@@ -527,16 +725,122 @@ async function pushRemoteState(options = {}) {
       },
       updated_at: new Date().toISOString()
     });
+  if (error) throw error;
+}
 
-  if (error) {
-    setSyncStatus(`서버 저장 실패: ${error.message}`);
+async function syncRemoteStateV2() {
+  const changedRows = [];
+  const stalePaths = [];
+  let changedLocalState = false;
+
+  for (const item of state.items) {
+    const mediaResult = await prepareItemMedia(item);
+    stalePaths.push(...mediaResult.stalePaths);
+    changedLocalState = changedLocalState || mediaResult.changedLocalState;
+    const canonical = canonicalRemoteItem(item);
+    const previous = remoteItemSnapshot.get(item.id);
+    if (previous) {
+      const currentPaths = new Set(storagePathsFromItem(canonical));
+      storagePathsFromItem(previous).forEach((path) => {
+        if (!currentPaths.has(path)) stalePaths.push(path);
+      });
+    }
+    if (!previous || JSON.stringify(previous) !== JSON.stringify(canonical)) {
+      changedRows.push({
+        user_id: currentUser.id,
+        id: item.id,
+        data: canonical,
+        updated_at: new Date().toISOString()
+      });
+    }
+  }
+
+  if (changedLocalState) await persistLocalStateWithoutSync();
+
+  const currentIds = new Set(state.items.map((item) => item.id));
+  const deletedIds = [...remoteItemSnapshot.keys()].filter((id) => !currentIds.has(id));
+  deletedIds.forEach((id) => stalePaths.push(...storagePathsFromItem(remoteItemSnapshot.get(id))));
+
+  if (changedRows.length) {
+    const { error } = await supabaseClient
+      .from(REMOTE_ITEMS_TABLE)
+      .upsert(changedRows, { onConflict: "user_id,id" });
+    if (error) throw error;
+  }
+
+  if (deletedIds.length) {
+    const { error } = await supabaseClient
+      .from(REMOTE_ITEMS_TABLE)
+      .delete()
+      .eq("user_id", currentUser.id)
+      .in("id", deletedIds);
+    if (error) throw error;
+  }
+
+  const { error: settingsError } = await supabaseClient
+    .from("archive_state")
+    .upsert({
+      user_id: currentUser.id,
+      data: remoteSettings(),
+      updated_at: new Date().toISOString()
+    });
+  if (settingsError) throw settingsError;
+
+  if (stalePaths.length) {
+    await supabaseClient.storage.from(MEDIA_BUCKET).remove([...new Set(stalePaths)]);
+  }
+
+  const nextSnapshot = new Map(remoteItemSnapshot);
+  changedRows.forEach((row) => nextSnapshot.set(row.id, row.data));
+  deletedIds.forEach((id) => nextSnapshot.delete(id));
+  remoteItemSnapshot = nextSnapshot;
+
+  return { changedCount: changedRows.length, deletedCount: deletedIds.length };
+}
+
+async function pushRemoteState(options = {}) {
+  if (!supabaseClient || !currentUser) {
+    setSyncStatus("먼저 로그인해 주세요.");
     return;
   }
 
-  if (!options.silent) {
-    setSyncStatus(`서버에 저장했습니다. ${state.items.length}개`);
-  } else if (options.auto) {
-    setSyncStatus("방금 자동 저장됨");
+  if (remoteSyncInFlight) {
+    remoteSyncPending = true;
+    return;
+  }
+
+  remoteSyncInFlight = true;
+  if (!options.silent) setSyncStatus("서버에 저장하는 중...");
+
+  try {
+    let result = { changedCount: state.items.length, deletedCount: 0 };
+    if (remoteSchemaAvailable === false) {
+      await pushLegacyRemoteState({ silent: true });
+    } else {
+      try {
+        result = await syncRemoteStateV2();
+        remoteSchemaAvailable = true;
+      } catch (error) {
+        if (!isMissingItemsTable(error) && !isMissingMediaBucket(error)) throw error;
+        remoteSchemaAvailable = false;
+        await pushLegacyRemoteState({ silent: true });
+      }
+    }
+
+    if (!options.silent) {
+      setSyncStatus(`서버에 저장했습니다. ${state.items.length}개`);
+    } else if (options.auto) {
+      const changed = result.changedCount + result.deletedCount;
+      setSyncStatus(changed ? `자동 저장됨 · ${changed}개 반영` : "모두 저장됨");
+    }
+  } catch (error) {
+    setSyncStatus(`서버 저장 실패: ${error.message || error}`);
+  } finally {
+    remoteSyncInFlight = false;
+    if (remoteSyncPending) {
+      remoteSyncPending = false;
+      scheduleRemoteSave();
+    }
   }
 }
 
@@ -1394,6 +1698,9 @@ function saveItem(event) {
     title,
     type,
     url,
+    storagePath: type === "image" && oldItemForPreview?.type === "image"
+      ? oldItemForPreview.storagePath || ""
+      : "",
     category: els.quickCategoryInput.value || els.categoryInput.value,
     tags: els.tagsInput.value.split(",").map((tag) => tag.trim()).filter(Boolean),
     content: quickText || (type === "image" ? "이미지 첨부" : ""),
