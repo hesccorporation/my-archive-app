@@ -108,6 +108,10 @@ const els = {
   passwordInput: document.querySelector("#passwordInput"),
   signupButton: document.querySelector("#signupButton"),
   resetPasswordButton: document.querySelector("#resetPasswordButton"),
+  googleAuthButton: document.querySelector("#googleAuthButton"),
+  kakaoAuthButton: document.querySelector("#kakaoAuthButton"),
+  googleLinkButton: document.querySelector("#googleLinkButton"),
+  kakaoLinkButton: document.querySelector("#kakaoLinkButton"),
   authSignedOut: document.querySelector("#authSignedOut"),
   authSignedIn: document.querySelector("#authSignedIn"),
   accountAvatar: document.querySelector("#accountAvatar"),
@@ -326,6 +330,25 @@ function setSyncButtons() {
   els.authSignedIn.hidden = !signedIn;
   els.logoutButton.disabled = !signedIn;
 
+  const connectedProviders = new Set(
+    (currentUser?.identities || []).map((identity) => identity.provider)
+  );
+  const socialButtons = [els.googleAuthButton, els.kakaoAuthButton].filter(Boolean);
+  socialButtons.forEach((button) => {
+    button.disabled = !supabaseClient;
+  });
+
+  const updateLinkButton = (button, provider, label) => {
+    if (!button) return;
+    const connected = connectedProviders.has(provider);
+    button.disabled = connected || !supabaseClient;
+    button.querySelector("span:nth-child(2)").textContent = connected
+      ? `${label} 연결됨`
+      : `${label} 계정 연결`;
+  };
+  updateLinkButton(els.googleLinkButton, "google", "Google");
+  updateLinkButton(els.kakaoLinkButton, "kakao", "카카오");
+
   const email = currentUser?.email || "";
   els.accountEmail.textContent = email || "로그인된 계정";
   els.accountAvatar.textContent = email ? email.slice(0, 1).toUpperCase() : "내";
@@ -438,6 +461,31 @@ async function loginWithPassword() {
     remoteReady = true;
     setSyncStatus("자동 저장 켜짐");
     render();
+  }
+}
+
+function socialProviderLabel(provider) {
+  return provider === "kakao" ? "카카오" : "Google";
+}
+
+async function startSocialAuth(provider, linkToCurrentUser = false) {
+  if (!supabaseClient) {
+    setSyncStatus("로그인 연결을 준비하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    return;
+  }
+
+  const label = socialProviderLabel(provider);
+  const options = { redirectTo: APP_URL };
+  setSyncStatus(linkToCurrentUser
+    ? `${label} 계정 연결 화면을 여는 중...`
+    : `${label} 로그인 화면을 여는 중...`);
+
+  const { error } = linkToCurrentUser && currentUser
+    ? await supabaseClient.auth.linkIdentity({ provider, options })
+    : await supabaseClient.auth.signInWithOAuth({ provider, options });
+
+  if (error) {
+    setSyncStatus(`${label} 연결 실패: ${error.message}`);
   }
 }
 
@@ -2042,6 +2090,10 @@ els.signupButton.addEventListener("click", signupWithPassword);
 els.loginButton.addEventListener("click", loginWithPassword);
 els.logoutButton.addEventListener("click", logout);
 els.resetPasswordButton.addEventListener("click", resetPassword);
+els.googleAuthButton?.addEventListener("click", () => startSocialAuth("google"));
+els.kakaoAuthButton?.addEventListener("click", () => startSocialAuth("kakao"));
+els.googleLinkButton?.addEventListener("click", () => startSocialAuth("google", true));
+els.kakaoLinkButton?.addEventListener("click", () => startSocialAuth("kakao", true));
 els.passwordInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") loginWithPassword();
 });
