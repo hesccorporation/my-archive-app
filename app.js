@@ -395,9 +395,11 @@ function setSyncButtons() {
   const updateLinkButton = (button, provider, label) => {
     if (!button) return;
     const connected = connectedProviders.has(provider);
-    button.disabled = connected || !supabaseClient;
+    button.disabled = !supabaseClient;
+    button.classList.toggle("connected", connected);
+    button.dataset.connected = connected ? "true" : "false";
     button.querySelector("span:nth-child(2)").textContent = connected
-      ? `${label} 연결됨`
+      ? `${label} 연결 해제`
       : `${label} 계정 연결`;
   };
   updateLinkButton(els.googleLinkButton, "google", "Google");
@@ -520,6 +522,34 @@ async function startSocialAuth(provider, linkToCurrentUser = false) {
   if (error) {
     setSyncStatus(`${label} 연결 실패: ${error.message}`);
   }
+}
+
+async function toggleSocialIdentity(provider) {
+  if (!supabaseClient || !currentUser) return;
+
+  const label = socialProviderLabel(provider);
+  const identity = (currentUser.identities || []).find((entry) => entry.provider === provider);
+  if (!identity) {
+    await startSocialAuth(provider, true);
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `${label} 계정 연결을 해제할까요?\n해제 후에는 ${label} 로그인이 현재 자료에 연결되지 않습니다.`
+  );
+  if (!confirmed) return;
+
+  setSyncStatus(`${label} 계정 연결을 해제하는 중...`);
+  const { error } = await supabaseClient.auth.unlinkIdentity(identity);
+  if (error) {
+    setSyncStatus(`${label} 연결 해제 실패: ${error.message}`);
+    return;
+  }
+
+  const { data } = await supabaseClient.auth.getUser();
+  currentUser = data.user || currentUser;
+  setSyncButtons();
+  setSyncStatus(`${label} 계정 연결을 해제했습니다.`);
 }
 
 async function resetPassword() {
@@ -2136,8 +2166,8 @@ els.logoutButton.addEventListener("click", logout);
 els.resetPasswordButton.addEventListener("click", resetPassword);
 els.googleAuthButton?.addEventListener("click", () => startSocialAuth("google"));
 els.kakaoAuthButton?.addEventListener("click", () => startSocialAuth("kakao"));
-els.googleLinkButton?.addEventListener("click", () => startSocialAuth("google", true));
-els.kakaoLinkButton?.addEventListener("click", () => startSocialAuth("kakao", true));
+els.googleLinkButton?.addEventListener("click", () => toggleSocialIdentity("google"));
+els.kakaoLinkButton?.addEventListener("click", () => toggleSocialIdentity("kakao"));
 els.passwordInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") loginWithPassword();
 });
