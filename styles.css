@@ -497,6 +497,11 @@ button {
   gap: 8px;
 }
 
+.category-nav[hidden],
+.category-form[hidden] {
+  display: none;
+}
+
 .category-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

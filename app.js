@@ -328,6 +328,8 @@ function setSyncButtons() {
   const signedIn = Boolean(currentUser);
   els.authSignedOut.hidden = signedIn;
   els.authSignedIn.hidden = !signedIn;
+  els.categoryNav.hidden = !signedIn;
+  els.categoryForm.hidden = !signedIn;
   els.logoutButton.disabled = !signedIn;
 
   const connectedProviders = new Set(
