@@ -52,6 +52,7 @@ let remoteSchemaAvailable = null;
 let remoteSyncInFlight = false;
 let remoteSyncPending = false;
 let remoteItemSnapshot = new Map();
+let authSyncPromise = null;
 let activeImageItemId = "";
 let activeDetailItemId = "";
 let deferredInstallPrompt = null;
@@ -324,6 +325,57 @@ function setSyncStatus(message) {
   els.syncStatus.textContent = message;
 }
 
+function signedInAccountLabel() {
+  const provider = currentUser?.app_metadata?.provider;
+  if (currentUser?.email) return currentUser.email;
+  if (provider === "kakao") return "카카오 계정";
+  if (provider === "google") return "Google 계정";
+  return "계정";
+}
+
+async function syncAuthenticatedState(message) {
+  if (!currentUser) return false;
+  if (authSyncPromise) return authSyncPromise;
+
+  const userId = currentUser.id;
+  setSyncStatus(message);
+  authSyncPromise = (async () => {
+    try {
+      const loaded = await pullRemoteState({ silent: true });
+      if (!loaded || currentUser?.id !== userId) return false;
+      remoteReady = true;
+      setSyncStatus("모두 저장됨");
+      return true;
+    } catch (error) {
+      remoteReady = false;
+      setSyncStatus(`동기화 실패: ${error.message || error}`);
+      return false;
+    } finally {
+      authSyncPromise = null;
+    }
+  })();
+
+  return authSyncPromise;
+}
+
+async function handleAuthStateChange(session) {
+  currentUser = session?.user || null;
+  remoteReady = false;
+  setSyncButtons();
+
+  if (currentUser) {
+    els.emailInput.value = currentUser.email || "";
+    await syncAuthenticatedState(`${signedInAccountLabel()} 로그인됨. 서버 자료를 불러오는 중...`);
+    render();
+  } else {
+    remoteSchemaAvailable = null;
+    remoteItemSnapshot = new Map();
+    selectedIds.clear();
+    setSyncStatus("로그아웃됨");
+    render();
+  }
+}
+
 function setSyncButtons() {
   const signedIn = Boolean(currentUser);
   els.authSignedOut.hidden = signedIn;
@@ -369,33 +421,14 @@ async function initializeAuth() {
 
   if (currentUser) {
     els.emailInput.value = currentUser.email || "";
-    setSyncStatus(`${currentUser.email} 로그인됨. 서버 자료를 확인하는 중...`);
-    await pullRemoteState({ silent: true });
-    remoteReady = true;
-    setSyncStatus("자동 저장 켜짐");
+    await syncAuthenticatedState(`${signedInAccountLabel()} 로그인됨. 서버 자료를 확인하는 중...`);
   } else {
     setSyncStatus("로그인하면 모든 기기에서 같은 자료를 볼 수 있어요.");
   }
 
-  supabaseClient.auth.onAuthStateChange(async (_event, session) => {
-    currentUser = session?.user || null;
-    remoteReady = false;
-    setSyncButtons();
-
-    if (currentUser) {
-      els.emailInput.value = currentUser.email || "";
-      setSyncStatus(`${currentUser.email} 로그인됨. 서버 자료를 불러오는 중...`);
-      await pullRemoteState({ silent: true });
-      remoteReady = true;
-      setSyncStatus("자동 저장 켜짐");
-      render();
-    } else {
-      remoteSchemaAvailable = null;
-      remoteItemSnapshot = new Map();
-      selectedIds.clear();
-      setSyncStatus("로그아웃됨");
-      render();
-    }
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
+    window.setTimeout(() => handleAuthStateChange(session), 0);
   });
 }
 
@@ -459,9 +492,7 @@ async function loginWithPassword() {
   currentUser = data.user || null;
   setSyncButtons();
   if (currentUser) {
-    await pullRemoteState({ silent: true });
-    remoteReady = true;
-    setSyncStatus("자동 저장 켜짐");
+    await syncAuthenticatedState(`${signedInAccountLabel()} 로그인됨. 서버 자료를 확인하는 중...`);
     render();
   }
 }
@@ -623,9 +654,19 @@ async function prepareItemMedia(item) {
 
 async function hydrateRemoteItem(item) {
   const copy = cloneJson(item);
-  if (copy.storagePath) copy.url = await signedMediaUrl(copy.storagePath);
+  if (copy.storagePath) {
+    try {
+      copy.url = await signedMediaUrl(copy.storagePath);
+    } catch {
+      copy.url = "";
+    }
+  }
   if (copy.linkPreview?.storagePath) {
-    copy.linkPreview.image = await signedMediaUrl(copy.linkPreview.storagePath);
+    try {
+      copy.linkPreview.image = await signedMediaUrl(copy.linkPreview.storagePath);
+    } catch {
+      copy.linkPreview.image = "";
+    }
   }
   return copy;
 }
@@ -678,7 +719,7 @@ async function loadLegacyRemoteState(settingsRow, options = {}) {
 async function pullRemoteState(options = {}) {
   if (!supabaseClient || !currentUser) {
     setSyncStatus("먼저 로그인해 주세요.");
-    return;
+    return false;
   }
 
   if (!options.silent) setSyncStatus("서버에서 불러오는 중...");
@@ -690,7 +731,7 @@ async function pullRemoteState(options = {}) {
 
   if (settingsResult.error) {
     setSyncStatus(`서버 불러오기 실패: ${settingsResult.error.message}`);
-    return;
+    return false;
   }
 
   const itemsResult = await supabaseClient
@@ -701,10 +742,10 @@ async function pullRemoteState(options = {}) {
   if (itemsResult.error) {
     if (isMissingItemsTable(itemsResult.error)) {
       await loadLegacyRemoteState(settingsResult.data, options);
-      return;
+      return true;
     }
     setSyncStatus(`서버 불러오기 실패: ${itemsResult.error.message}`);
-    return;
+    return false;
   }
 
   remoteSchemaAvailable = true;
@@ -723,7 +764,7 @@ async function pullRemoteState(options = {}) {
     render();
     suppressRemoteSave = false;
     if (!options.silent) setSyncStatus(`서버 자료를 불러왔습니다. ${state.items.length}개`);
-    return;
+    return true;
   }
 
   if (legacyItems.length) {
@@ -741,7 +782,7 @@ async function pullRemoteState(options = {}) {
       await pushLegacyRemoteState({ silent: true }).catch(() => {});
       setSyncStatus(`기존 저장 방식을 유지합니다: ${error.message || error}`);
     }
-    return;
+    return true;
   }
 
   if (settingsResult.data?.data) {
@@ -752,12 +793,13 @@ async function pullRemoteState(options = {}) {
     render();
     suppressRemoteSave = false;
     if (!options.silent) setSyncStatus("서버 자료를 불러왔습니다.");
-    return;
+    return true;
   }
 
   remoteItemSnapshot = new Map();
   await syncRemoteStateV2();
   if (!options.silent) setSyncStatus("현재 자료를 서버에 저장했습니다.");
+  return true;
 }
 
 async function pushLegacyRemoteState(options = {}) {
