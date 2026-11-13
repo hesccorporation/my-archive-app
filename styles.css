@@ -227,14 +227,12 @@ button {
   display: none;
 }
 
-.social-auth-actions,
-.identity-link-actions {
+.social-auth-actions {
   display: grid;
   gap: 8px;
 }
 
-.social-auth-button,
-.identity-link-button {
+.social-auth-button {
   display: grid;
   min-height: 42px;
   grid-template-columns: 24px minmax(0, 1fr) 24px;
@@ -250,21 +248,18 @@ button {
   transition: transform 140ms ease, border-color 140ms ease, filter 140ms ease;
 }
 
-.social-auth-button::after,
-.identity-link-button::after {
+.social-auth-button::after {
   width: 24px;
   content: "";
 }
 
-.social-auth-button:hover,
-.identity-link-button:hover {
+.social-auth-button:hover {
   transform: translateY(-1px);
   border-color: rgba(94, 234, 212, 0.72);
   filter: brightness(0.98);
 }
 
-.social-auth-button.kakao,
-.identity-link-button.kakao {
+.social-auth-button.kakao {
   border-color: #fee500;
   background: #fee500;
   color: #191919;
@@ -335,42 +330,6 @@ button {
   flex: 1;
   background: rgba(148, 163, 184, 0.18);
   content: "";
-}
-
-.identity-link-button {
-  min-height: 38px;
-  background: rgba(255, 255, 255, 0.96);
-  font-size: 11px;
-}
-
-.identity-link-button.connected {
-  border-color: rgba(45, 212, 191, 0.24);
-  background: rgba(15, 118, 110, 0.2);
-  color: #99f6e4;
-  filter: none;
-}
-
-.identity-link-button.connected:hover {
-  border-color: rgba(248, 113, 113, 0.62);
-  color: #fecaca;
-}
-
-.identity-link-button.connected .social-auth-icon {
-  opacity: 0.65;
-}
-
-.identity-link-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-  transform: none;
-}
-
-.identity-link-hint {
-  margin: -2px 2px 0;
-  color: #94a3b8;
-  font-size: 10px;
-  line-height: 1.45;
-  text-align: center;
 }
 
 .auth-field {

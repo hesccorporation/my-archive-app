@@ -111,8 +111,6 @@ const els = {
   resetPasswordButton: document.querySelector("#resetPasswordButton"),
   googleAuthButton: document.querySelector("#googleAuthButton"),
   kakaoAuthButton: document.querySelector("#kakaoAuthButton"),
-  googleLinkButton: document.querySelector("#googleLinkButton"),
-  kakaoLinkButton: document.querySelector("#kakaoLinkButton"),
   authSignedOut: document.querySelector("#authSignedOut"),
   authSignedIn: document.querySelector("#authSignedIn"),
   accountAvatar: document.querySelector("#accountAvatar"),
@@ -384,26 +382,10 @@ function setSyncButtons() {
   els.categoryForm.hidden = !signedIn;
   els.logoutButton.disabled = !signedIn;
 
-  const connectedProviders = new Set(
-    (currentUser?.identities || []).map((identity) => identity.provider)
-  );
   const socialButtons = [els.googleAuthButton, els.kakaoAuthButton].filter(Boolean);
   socialButtons.forEach((button) => {
     button.disabled = !supabaseClient;
   });
-
-  const updateLinkButton = (button, provider, label) => {
-    if (!button) return;
-    const connected = connectedProviders.has(provider);
-    button.disabled = !supabaseClient;
-    button.classList.toggle("connected", connected);
-    button.dataset.connected = connected ? "true" : "false";
-    button.querySelector("span:nth-child(2)").textContent = connected
-      ? `${label} 연결 해제`
-      : `${label} 계정 연결`;
-  };
-  updateLinkButton(els.googleLinkButton, "google", "Google");
-  updateLinkButton(els.kakaoLinkButton, "kakao", "카카오");
 
   const email = currentUser?.email || "";
   els.accountEmail.textContent = email || "로그인된 계정";
@@ -503,7 +485,7 @@ function socialProviderLabel(provider) {
   return provider === "kakao" ? "카카오" : "Google";
 }
 
-async function startSocialAuth(provider, linkToCurrentUser = false) {
+async function startSocialAuth(provider) {
   if (!supabaseClient) {
     setSyncStatus("로그인 연결을 준비하지 못했습니다. 잠시 후 다시 시도해 주세요.");
     return;
@@ -511,45 +493,13 @@ async function startSocialAuth(provider, linkToCurrentUser = false) {
 
   const label = socialProviderLabel(provider);
   const options = { redirectTo: APP_URL };
-  setSyncStatus(linkToCurrentUser
-    ? `${label} 계정 연결 화면을 여는 중...`
-    : `${label} 로그인 화면을 여는 중...`);
+  setSyncStatus(`${label} 로그인 화면을 여는 중...`);
 
-  const { error } = linkToCurrentUser && currentUser
-    ? await supabaseClient.auth.linkIdentity({ provider, options })
-    : await supabaseClient.auth.signInWithOAuth({ provider, options });
+  const { error } = await supabaseClient.auth.signInWithOAuth({ provider, options });
 
   if (error) {
-    setSyncStatus(`${label} 연결 실패: ${error.message}`);
+    setSyncStatus(`${label} 로그인 실패: ${error.message}`);
   }
-}
-
-async function toggleSocialIdentity(provider) {
-  if (!supabaseClient || !currentUser) return;
-
-  const label = socialProviderLabel(provider);
-  const identity = (currentUser.identities || []).find((entry) => entry.provider === provider);
-  if (!identity) {
-    await startSocialAuth(provider, true);
-    return;
-  }
-
-  const confirmed = window.confirm(
-    `${label} 계정 연결을 해제할까요?\n해제 후에는 ${label} 로그인이 현재 자료에 연결되지 않습니다.`
-  );
-  if (!confirmed) return;
-
-  setSyncStatus(`${label} 계정 연결을 해제하는 중...`);
-  const { error } = await supabaseClient.auth.unlinkIdentity(identity);
-  if (error) {
-    setSyncStatus(`${label} 연결 해제 실패: ${error.message}`);
-    return;
-  }
-
-  const { data } = await supabaseClient.auth.getUser();
-  currentUser = data.user || currentUser;
-  setSyncButtons();
-  setSyncStatus(`${label} 계정 연결을 해제했습니다.`);
 }
 
 async function resetPassword() {
@@ -2166,8 +2116,6 @@ els.logoutButton.addEventListener("click", logout);
 els.resetPasswordButton.addEventListener("click", resetPassword);
 els.googleAuthButton?.addEventListener("click", () => startSocialAuth("google"));
 els.kakaoAuthButton?.addEventListener("click", () => startSocialAuth("kakao"));
-els.googleLinkButton?.addEventListener("click", () => toggleSocialIdentity("google"));
-els.kakaoLinkButton?.addEventListener("click", () => toggleSocialIdentity("kakao"));
 els.passwordInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") loginWithPassword();
 });
